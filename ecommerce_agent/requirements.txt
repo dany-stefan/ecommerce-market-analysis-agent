@@ -1,13 +1,18 @@
 # Core dependencies for E-commerce Market Analysis Agent
 
-# Language Model & AI
+# REST API Framework (Question 1 - REST API Interface)
+fastapi>=0.104.0             # Modern REST API framework
+uvicorn[standard]>=0.24.0    # ASGI server for FastAPI
+pydantic>=2.5.0              # Data validation (also used by FastAPI)
+pydantic-settings>=2.0.0     # Settings from environment
+
+# Language Model & AI (LLM Integration - 25% criteria)
 openai>=1.0.0                # OpenAI API for LLM capabilities
 anthropic>=0.7.0             # Alternative LLM provider
 
 # Web Scraping & Data Collection
 requests>=2.31.0             # HTTP library for API calls
 beautifulsoup4>=4.12.0       # HTML parsing for web scraping
-selenium>=4.15.0             # Browser automation if needed
 
 # Data Processing
 pandas>=2.1.0                # Data manipulation and analysis
@@ -15,10 +20,22 @@ numpy>=1.24.0                # Numerical operations
 
 # Utilities
 python-dotenv>=1.0.0         # Environment variable management
-pydantic>=2.5.0              # Data validation and settings management
 loguru>=0.7.0                # Better logging
 
-# Development
+# Framework Comparison Reference (commented out - used for comparison only)
+# crewai>=0.11.0             # Alternative: Role-based multi-agent framework
+# crewai-tools>=0.2.0        # CrewAI tool integrations
+
+# Testing (Technical Quality - 25% criteria)
 pytest>=7.4.0                # Testing framework
+pytest-cov>=4.1.0            # Coverage reporting
+pytest-asyncio>=0.21.0       # Async test support
+
+# Development
 black>=23.0.0                # Code formatting
 flake8>=6.1.0                # Linting
+ipykernel>=6.25.0            # Jupyter notebook support
+
+# Optional: Advanced features (Innovation - 25% criteria)
+tiktoken>=0.5.0              # Token counting for cost management
+tenacity>=8.2.0              # Retry logic with exponential backoff

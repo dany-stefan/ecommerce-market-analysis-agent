@@ -1,0 +1,448 @@
+"""
+Market Analysis Agent - Simple Orchestrator
+Coordinates tools to produce market analysis reports.
+
+ORCHESTRATION APPROACH COMPARISON:
+==================================
+
+NATIVE APPROACH (Current Implementation):
+- Manual tool registration and coordination
+- Direct control over execution flow and error handling
+- Explicit dependency management between tools
+- Full transparency in orchestration logic
+
+CREWAI FRAMEWORK ALTERNATIVE (Commented for comparison):
+- Role-based agent architecture (Product Researcher, Sentiment Analyst, Market Strategist)
+- Automatic task coordination with built-in dependency resolution
+- Inter-agent communication and memory sharing
+- Declarative workflow definition
+
+Framework Selection Rationale:
+CrewAI was chosen for comparison because:
+1. Rapid Prototyping: Best for quick implementation (5-hour assignment)
+2. Role-Based Design: Natural fit for our specialized tool architecture
+3. Built-in Orchestration: Simplifies multi-agent coordination
+4. Market Analysis Fit: Designed for research/content pipelines like ours
+
+However, Native Approach was selected for:
+- Maximum control and transparency for technical evaluation
+- No framework lock-in or learning curve
+- Better demonstration of core orchestration concepts
+- Easier debugging and customization
+"""
+
+from typing import List, Dict, Any
+from loguru import logger
+from src.tools.base_tool import BaseTool
+from src.utils.models import AnalysisRequest, AnalysisResult, CompetitorData
+from src.tools.product_collector import ProductCollectorTool, ProductCollectorInput
+from src.tools.sentiment_analyzer import SentimentAnalyzerTool, SentimentAnalyzerInput
+from src.tools.report_generator import ReportGeneratorTool, ReportGeneratorInput
+from src.utils.mock_data import MockReviewsGenerator, MockCompetitorGenerator
+
+# ============================================================================
+# CREWAI ALTERNATIVE IMPORTS (Commented - for framework comparison)
+# ============================================================================
+# from crewai import Agent, Task, Crew, Process
+# from crewai.tools import BaseTool as CrewAIBaseTool
+# from langchain.tools import Tool
+
+
+class MarketAnalysisAgent:
+    """
+    Simple agent that orchestrates tools to analyze markets.
+    
+    NATIVE APPROACH - Manual Orchestration:
+    =======================================
+    Design Decision: Keep orchestration logic simple and transparent.
+    - Register tools manually
+    - Decide which tools to use based on request
+    - Execute tools in sequence with explicit dependency handling
+    - Aggregate results with custom logic
+    
+    Tool Execution Flow:
+    1. ProductCollector → Get product data
+    2. SentimentAnalyzer → Analyze reviews (uses mock reviews)
+    3. CompetitionAnalyzer → Add competitor data (mock)
+    4. ReportGenerator → Synthesize everything into recommendations
+    
+    CREWAI ALTERNATIVE - Role-Based Multi-Agent:
+    ============================================
+    With CrewAI, this class would be replaced by:
+    
+    # 1. Define specialized agents (roles)
+    product_researcher = Agent(
+        role='Product Research Specialist',
+        goal='Collect comprehensive product data from e-commerce platforms',
+        backstory='Expert in web scraping and API integration for online marketplaces',
+        tools=[ProductCollectorTool()],
+        verbose=True,
+        allow_delegation=False
+    )
+    
+    sentiment_analyst = Agent(
+        role='Customer Sentiment Analyst', 
+        goal='Analyze customer reviews and extract actionable sentiment insights',
+        backstory='Experienced NLP specialist with expertise in customer feedback analysis',
+        tools=[SentimentAnalyzerTool()],
+        verbose=True,
+        allow_delegation=False
+    )
+    
+    competitor_analyst = Agent(
+        role='Competitive Intelligence Analyst',
+        goal='Research and analyze competitor products and market positioning',
+        backstory='Market research expert specializing in competitive analysis',
+        tools=[CompetitorAnalysisTool()],
+        verbose=True,
+        allow_delegation=False
+    )
+    
+    market_strategist = Agent(
+        role='Market Strategy Advisor',
+        goal='Synthesize research into strategic recommendations',
+        backstory='Senior consultant with expertise in e-commerce strategy',
+        tools=[ReportGeneratorTool()],
+        verbose=True,
+        allow_delegation=True  # Can delegate to other agents if needed
+    )
+    
+    # 2. Define tasks with dependencies
+    research_task = Task(
+        description='Research product: {product_query}. Gather pricing, specs, and availability.',
+        agent=product_researcher,
+        expected_output='Comprehensive product data with all details'
+    )
+    
+    sentiment_task = Task(
+        description='Analyze customer sentiment for: {product_query}',
+        agent=sentiment_analyst,
+        expected_output='Sentiment analysis with scores, themes, and insights',
+        context=[research_task]  # Depends on research
+    )
+    
+    competitor_task = Task(
+        description='Identify and analyze top 5 competitors for: {product_query}',
+        agent=competitor_analyst,
+        expected_output='Competitor comparison with pricing and positioning',
+        context=[research_task]  # Depends on research
+    )
+    
+    strategy_task = Task(
+        description='Generate strategic recommendations based on all research',
+        agent=market_strategist,
+        expected_output='Executive report with actionable recommendations',
+        context=[research_task, sentiment_task, competitor_task]  # Depends on all
+    )
+    
+    # 3. Create crew with automatic orchestration
+    analysis_crew = Crew(
+        agents=[product_researcher, sentiment_analyst, competitor_analyst, market_strategist],
+        tasks=[research_task, sentiment_task, competitor_task, strategy_task],
+        process=Process.sequential,  # or Process.hierarchical for complex workflows
+        verbose=True,
+        memory=True,  # Enable inter-agent memory
+        cache=True    # Cache results for efficiency
+    )
+    
+    # 4. Execute (single line replaces entire analyze() method)
+    result = analysis_crew.kickoff(inputs={'product_query': 'iPhone 15 Pro'})
+    
+    CrewAI Advantages:
+    - Automatic task dependency resolution and execution order
+    - Built-in memory sharing between agents
+    - Role-based prompts improve LLM reasoning quality
+    - Less boilerplate code (no manual tool coordination)
+    - Built-in error handling and retry logic
+    - Hierarchical processing for complex decision trees
+    
+    CrewAI Trade-offs:
+    - Less granular control over execution flow
+    - Framework-specific abstractions and conventions
+    - Requires understanding of CrewAI's task/agent patterns
+    - May be overkill for simple sequential workflows
+    """
+    
+    def __init__(self):
+        """
+        Initialize the orchestrator
+        
+        Native: Manual tool registry
+        CrewAI: Crew initialization with agents and tasks
+        """
+        self.tools: Dict[str, BaseTool] = {}
+        logger.info("Market Analysis Agent initialized")
+        
+        # CrewAI alternative:
+        # self.crew = Crew(agents=[...], tasks=[...], process=Process.sequential)
+    
+    def register_tool(self, tool: BaseTool):
+        """
+        Add a tool to the agent's toolkit.
+        
+        Native Approach: Manual registration with dictionary storage
+        CrewAI Approach: Tools assigned directly to agents during initialization
+        
+        Args:
+            tool: Instance of a tool that inherits from BaseTool
+            
+        CrewAI Alternative:
+        Tools are assigned when creating agents, not registered separately:
+        
+        agent = Agent(
+            role='Analyst',
+            tools=[tool1, tool2, tool3],  # Direct assignment
+            ...
+        )
+        """
+        self.tools[tool.name] = tool
+        logger.info(f"Registered tool: {tool.name}")
+    
+    def analyze(self, request: AnalysisRequest) -> AnalysisResult:
+        """
+        Main method: orchestrate tools to analyze a product/market.
+        
+        NATIVE APPROACH - Manual Orchestration:
+        ========================================
+        - Explicitly call each tool in sequence
+        - Manual dependency handling
+        - Custom result aggregation logic
+        
+        CREWAI APPROACH - Declarative Orchestration:
+        ============================================
+        With CrewAI, this entire method is replaced by:
+        
+        result = self.crew.kickoff(inputs={
+            'product_query': request.product_query,
+            'analysis_depth': request.analysis_depth,
+            'include_sentiment': request.include_sentiment,
+            'include_competitors': request.include_competitors
+        })
+        
+        CrewAI handles:
+        - Task execution order based on dependencies
+        - Inter-agent communication and context passing
+        - Parallel execution where possible
+        - Error handling and retries
+        - Result aggregation
+        
+        Args:
+            request: What the user wants to analyze
+            
+        Returns:
+            Complete analysis with all gathered data
+        """
+        logger.info(f"🔍 Starting analysis for: {request.product_query}")
+        
+        # Native: Initialize result object manually
+        result = AnalysisResult(request=request)
+        
+        # CrewAI: Result automatically structured by framework
+        # result = self.crew.kickoff(inputs={'product_query': request.product_query})
+        
+        # ====================================================================
+        # Tool Orchestration: Execute tools in dependency order
+        # CrewAI handles this automatically via task.context dependencies
+        # ====================================================================
+        
+        # 1. Always collect product data first (foundational data)
+        # Native: Explicit tool selection and execution
+        # CrewAI: research_task runs automatically first (no context dependencies)
+        logger.info("📦 Step 1/4: Collecting product data...")
+        product_result = self._collect_product_data(request.product_query)
+        if product_result["success"]:
+            result.product_data = product_result["data"]
+            result.metadata["product_collection"] = "success"
+        else:
+            logger.warning(f"Product collection failed: {product_result['error']}")
+            result.metadata["product_collection"] = "failed"
+        
+        # 2. Analyze sentiment if requested (independent of product data)
+        # Native: Conditional execution with if/else logic
+        # CrewAI: Task conditionally included in crew based on request
+        if request.include_sentiment:
+            logger.info("💬 Step 2/4: Analyzing customer sentiment...")
+            sentiment_result = self._analyze_sentiment(request.product_query)
+            if sentiment_result["success"]:
+                result.sentiment = sentiment_result["data"]
+                result.metadata["sentiment_analysis"] = "success"
+            else:
+                logger.warning(f"Sentiment analysis failed: {sentiment_result['error']}")
+                result.metadata["sentiment_analysis"] = "failed"
+        else:
+            logger.info("⏭️  Step 2/4: Skipping sentiment analysis (not requested)")
+            # CrewAI: Simply don't include sentiment_task in crew initialization
+        
+        # 3. Get competitor data if requested
+        # Native: Another conditional execution
+        # CrewAI: Another optional task based on inputs
+        if request.include_competitors:
+            logger.info("🔍 Step 3/4: Gathering competitor intelligence...")
+            competitors_result = self._get_competitors(request.product_query)
+            if competitors_result["success"]:
+                result.competitors = competitors_result["data"]
+                result.metadata["competitor_analysis"] = "success"
+            else:
+                logger.warning(f"Competitor analysis failed: {competitors_result['error']}")
+                result.metadata["competitor_analysis"] = "failed"
+        else:
+            logger.info("⏭️  Step 3/4: Skipping competitor analysis (not requested)")
+            # CrewAI: Conditional task inclusion
+        
+        # 4. Generate recommendations (depends on all previous data)
+        # Native: Explicit call with aggregated result
+        # CrewAI: strategy_task with context=[all_previous_tasks] runs automatically
+        logger.info("📊 Step 4/4: Generating strategic recommendations...")
+        report_result = self._generate_report(result)
+        if report_result["success"]:
+            result.recommendations = report_result["data"].get("recommendations", [])
+            result.metadata["report"] = report_result["data"]
+            result.metadata["report_generation"] = "success"
+        else:
+            logger.warning(f"Report generation failed: {report_result['error']}")
+            result.metadata["report_generation"] = "failed"
+        
+        logger.success("✅ Analysis complete!")
+        
+        # CrewAI Alternative:
+        # All steps above replaced by: result = self.crew.kickoff(inputs={...})
+        # CrewAI automatically:
+        # - Executes tasks in dependency order
+        # - Passes context between agents
+        # - Handles errors with retries
+        # - Aggregates results into structured output
+        
+        return result
+    
+    def _collect_product_data(self, product_query: str) -> Dict[str, Any]:
+        """
+        Execute product collector tool.
+        
+        Native: Direct tool execution with explicit input/output handling
+        CrewAI: Handled by product_researcher agent executing research_task
+        """
+        if "ProductCollectorTool" not in self.tools:
+            return {"success": False, "error": "ProductCollectorTool not registered"}
+        
+        tool = self.tools["ProductCollectorTool"]
+        output = tool.run(ProductCollectorInput(product_query=product_query))
+        
+        # CrewAI alternative:
+        # research_task = Task(
+        #     description=f'Research product: {product_query}',
+        #     agent=product_researcher,
+        #     expected_output='Product data including price and specs'
+        # )
+        # Result automatically available in subsequent tasks via context
+        
+        return {
+            "success": output.success,
+            "data": output.data,
+            "error": output.error
+        }
+    
+    def _analyze_sentiment(self, product_query: str) -> Dict[str, Any]:
+        """
+        Execute sentiment analyzer tool with mock reviews.
+        
+        Native: Manual review generation and tool execution
+        CrewAI: sentiment_analyst agent executes sentiment_task with auto context
+        """
+        if "SentimentAnalyzerTool" not in self.tools:
+            return {"success": False, "error": "SentimentAnalyzerTool not registered"}
+        
+        # Get mock reviews for demonstration
+        reviews = MockReviewsGenerator.get_reviews_for_product(product_query, count=8)
+        
+        tool = self.tools["SentimentAnalyzerTool"]
+        output = tool.run(SentimentAnalyzerInput(
+            product_name=product_query,
+            reviews=reviews
+        ))
+        
+        # CrewAI alternative:
+        # sentiment_task = Task(
+        #  
+        Get competitor data (mock for demonstration).
+        
+        Native: Direct mock data generation
+        CrewAI: competitor_analyst agent executes competitor_task
+        """
+        try:
+            # Use mock competitor generator
+            competitors_data = MockCompetitorGenerator.get_competitors_for_product(product_query)
+            
+            # Convert to CompetitorData objects
+            competitors = [CompetitorData(**comp) for comp in competitors_data]
+            
+            # CrewAI alternative:
+            # competitor_task = Task(
+            #     description=f'Research top 5 competitors for: {product_query}',
+            #     agent=competitor_analyst,
+            #     context=[research_task],
+            #     expected_output='Competitor comparison with pricing and features'
+            # )
+        return {
+            "success": output.success,
+            "data": output.data,
+            "error": output.error
+        }
+    
+    def _get_competitors(self, product_query: str) -> Dict[str, Any]:
+        """Get competitor data (mock for demonstration)."""
+        try:
+            # Use mock competitor generator
+            competitors_data = MockCompetitorGenerator.get_competitors_for_product(product_query)
+           
+        Execute report generator tool.
+        
+        Native: Manual aggregation and tool execution
+        CrewAI: market_strategist agent executes strategy_task with all context
+        """
+        if "ReportGeneratorTool" not in self.tools:
+            return {"success": False, "error": "ReportGeneratorTool not registered"}
+        
+        tool = self.tools["ReportGeneratorTool"]
+        output = tool.run(ReportGeneratorInput(
+            analysis_result=analysis_result.model_dump()
+        ))
+        
+        # CrewAI alternative:
+        # strategy_task = Task(
+        #  
+        Return list of available tools.
+        
+        Native: Query tools dictionary
+        CrewAI: Query agents list
+        """
+        return list(self.tools.keys())
+        
+        # CrewAI alternative:
+        # return [agent.role for agent in self.crew.agents]
+        #     context=[research_task, sentiment_task, competitor_task],  # All deps
+        #     expected_output='Executive report with actionable recommendations'
+        # )
+        # Agent has access to all previous task outputs via context      "error": ""
+            }
+        except Exception as e:
+            return {"success": False, "data": [], "error": str(e)}
+    
+    def _generate_report(self, analysis_result: AnalysisResult) -> Dict[str, Any]:
+        """Execute report generator tool."""
+        if "ReportGeneratorTool" not in self.tools:
+            return {"success": False, "error": "ReportGeneratorTool not registered"}
+        
+        tool = self.tools["ReportGeneratorTool"]
+        output = tool.run(ReportGeneratorInput(
+            analysis_result=analysis_result.model_dump()
+        ))
+        
+        return {
+            "success": output.success,
+            "data": output.data,
+            "error": output.error
+        }
+    
+    def list_tools(self) -> List[str]:
+        """Return list of available tools."""
+        return list(self.tools.keys())
