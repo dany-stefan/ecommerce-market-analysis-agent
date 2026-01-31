@@ -7,6 +7,334 @@ This tool demonstrates:
 - Popularity metrics and trend detection
 - Market momentum analysis
 - Visualization-ready data structures
+
+MOCK DATA vs REAL MARKET DATA API INTEGRATION:
+=============================================
+
+MOCK/SIMULATED DATA APPROACH (Current Implementation):
+When use_mock_data=True (default):
+- Generates realistic price and popularity trends mathematically
+- Creates 90-day historical data with realistic patterns
+- Simulates market dynamics (seasonal trends, momentum shifts)
+- Instant generation without external dependencies
+- Deterministic patterns based on product characteristics
+
+Example Flow:
+1. Input: Product name (e.g., "iPhone 15 Pro")
+2. Generate Base Price: Derive from product category
+   - Premium products (iPhone, MacBook): $900-$1200
+   - Mid-range products: $300-$600
+   - Budget products: $50-$200
+3. Generate Price History: Add realistic variance
+   - Random daily fluctuations: ±2-5%
+   - Seasonal patterns: Higher prices during holidays
+   - Promotional dips: 10-15% discount periods
+4. Generate Popularity Metrics:
+   - Search volume: 10K-500K based on product tier
+   - Review count: Grows over time (launch to mature)
+   - Rating average: 3.5-4.8 with slight variance
+5. Calculate Trends:
+   - Price trend: Compare first vs last 30 days
+   - Momentum: Bullish/Bearish/Neutral based on velocity
+   - Forecast: Project trends forward
+
+Code Implementation (Mock):
+```python
+def _generate_price_history(self, product_name: str, days: int) -> List[PriceTrend]:
+    # Determine base price from product category
+    base_price = self._infer_base_price(product_name)
+    
+    prices = []
+    for i in range(days):
+        # Add realistic daily variance
+        daily_change = random.uniform(-0.05, 0.05)  # ±5% max
+        price = base_price * (1 + daily_change)
+        
+        # Add seasonal patterns (higher during holidays)
+        if self._is_holiday_season(i):
+            price *= 1.10  # 10% markup
+        
+        # Add promotional periods (random discounts)
+        if random.random() < 0.15:  # 15% chance
+            price *= 0.85  # 15% discount
+        
+        prices.append(PriceTrend(
+            date=(datetime.now() - timedelta(days=days-i)).isoformat(),
+            price=round(price, 2),
+            source="simulated_market_data"
+        ))
+    
+    return prices
+
+def _generate_popularity_metrics(self, days: int) -> List[PopularityMetric]:
+    metrics = []
+    for i in range(days):
+        # Growth pattern: slow start, rapid growth, plateau
+        growth_factor = 1 - math.exp(-i / 30)  # Exponential growth curve
+        
+        search_volume = int(50000 * growth_factor + random.randint(-5000, 5000))
+        review_count = int(200 * growth_factor + random.randint(-20, 20))
+        rating = round(4.2 + random.uniform(-0.3, 0.3), 1)
+        
+        metrics.append(PopularityMetric(
+            date=(datetime.now() - timedelta(days=days-i)).isoformat(),
+            search_volume=max(1000, search_volume),
+            review_count=max(10, review_count),
+            rating_average=max(1.0, min(5.0, rating))
+        ))
+    
+    return metrics
+```
+
+REAL MARKET DATA API APPROACH (Production):
+When use_mock_data=False and market data APIs configured:
+- Connect to real price tracking services (CamelCamelCamel, Keepa, etc.)
+- Fetch actual historical pricing from Amazon, eBay, Walmart APIs
+- Get real search trends from Google Trends API
+- Retrieve authentic review data from marketplace APIs
+- Costs, rate limits, and authentication required
+
+Example Flow:
+1. Input: Product name + ASIN/SKU identifier
+2. API Calls (Parallel):
+   a) Price History API:
+      ```python
+      # Keepa API Example
+      response = requests.get(
+          f"https://api.keepa.com/product",
+          params={
+              'key': KEEPA_API_KEY,
+              'domain': 1,  # .com
+              'asin': product_asin,
+              'stats': 90  # 90 days of data
+          }
+      )
+      price_data = response.json()['products'][0]['csv'][0]  # Price history
+      ```
+   
+   b) Search Trends API:
+      ```python
+      # Google Trends (pytrends)
+      from pytrends.request import TrendReq
+      
+      pytrend = TrendReq()
+      pytrend.build_payload([product_name], timeframe='today 3-m')
+      trends = pytrend.interest_over_time()
+      ```
+   
+   c) Review Data API:
+      ```python
+      # Amazon Product Advertising API
+      from amazon.paapi import AmazonAPI
+      
+      api = AmazonAPI(KEY, SECRET, TAG, REGION)
+      product = api.get_items(asin)[0]
+      
+      reviews = {
+          'rating': product.rating,
+          'review_count': product.review_count,
+          'ratings_breakdown': product.ratings_breakdown
+      }
+      ```
+
+3. Data Processing:
+   - Normalize data from different sources
+   - Handle missing data points (interpolation)
+   - Convert timestamps to consistent format
+   - Calculate trend indicators (MA, RSI, momentum)
+
+4. Error Handling:
+   ```python
+   try:
+       price_data = fetch_price_history(asin)
+   except requests.exceptions.HTTPError as e:
+       if e.response.status_code == 429:
+           # Rate limited - use exponential backoff
+           time.sleep(60)
+           price_data = fetch_price_history(asin)
+       else:
+           # API error - fall back to cached data
+           logger.warning(f"API error: {e}, using cached data")
+           price_data = load_from_cache(asin)
+   except requests.exceptions.RequestException:
+       # Network error - use mock data as fallback
+       logger.error("Network error, using simulated data")
+       price_data = generate_mock_price_data(product_name)
+   ```
+
+5. Output: Real historical data with actual market dynamics
+
+Code Implementation (Real API):
+```python
+class MarketTrendAnalyzerTool(BaseTool):
+    def __init__(self, use_mock_data: bool = False):
+        super().__init__()
+        self.use_mock_data = use_mock_data
+        
+        if not use_mock_data:
+            # Initialize API clients
+            self.keepa_client = KeepaAPI(api_key=KEEPA_API_KEY)
+            self.trends_client = TrendReq()
+            self.amazon_api = AmazonAPI(KEY, SECRET, TAG, REGION)
+            logger.info("Market Trend Analyzer with REAL API data")
+        else:
+            logger.info("Market Trend Analyzer with SIMULATED data")
+    
+    def _fetch_real_price_history(self, product_id: str, days: int) -> List[PriceTrend]:
+        try:
+            # Fetch from Keepa (price tracking service)
+            response = self.keepa_client.query(product_id, stats=days)
+            
+            prices = []
+            for timestamp, price in zip(response['csv'][0], response['csv'][1]):
+                if price > 0:  # Filter invalid data points
+                    prices.append(PriceTrend(
+                        date=datetime.fromtimestamp(timestamp).isoformat(),
+                        price=price / 100,  # Keepa uses cents
+                        source="keepa_api"
+                    ))
+            
+            return prices
+            
+        except Exception as e:
+            logger.error(f"Real API failed: {e}, using mock data")
+            return self._generate_mock_price_history(product_id, days)
+    
+    def _fetch_real_search_trends(self, product_name: str) -> List[PopularityMetric]:
+        try:
+            # Fetch from Google Trends
+            self.trends_client.build_payload([product_name], timeframe='today 3-m')
+            interest = self.trends_client.interest_over_time()
+            
+            metrics = []
+            for date, row in interest.iterrows():
+                metrics.append(PopularityMetric(
+                    date=date.isoformat(),
+                    search_volume=int(row[product_name] * 1000),  # Scale to realistic volume
+                    review_count=0,  # Would need separate API call
+                    rating_average=0.0  # Would need separate API call
+                ))
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Trends API failed: {e}, using mock data")
+            return self._generate_mock_popularity_metrics(90)
+```
+
+COMPARISON TABLE:
+================
+| Aspect                | Mock/Simulated Data              | Real Market Data APIs                  |
+|-----------------------|----------------------------------|----------------------------------------|
+| Data Source           | Mathematical generation          | Keepa, Google Trends, Amazon API       |
+| Historical Accuracy   | Realistic patterns, not real     | Actual market data                     |
+| Setup                 | No configuration needed          | Multiple API keys required             |
+| Cost                  | Free                             | $20-50/month per API                   |
+| Speed                 | <50ms (instant generation)       | 1-5 seconds (multiple API calls)       |
+| Rate Limits           | None                             | 100-1000 requests/day typical          |
+| Data Quality          | Consistent, predictable          | Real but may have gaps                 |
+| Dependencies          | None                             | pytrends, keepa, amazon-paapi          |
+| Offline Capability    | Yes                              | No                                     |
+| Update Frequency      | Always current (generated)       | Real-time to daily updates             |
+| Error Handling        | Not needed                       | Critical (network, rate limits, auth)  |
+| Historical Range      | Any range (generated on demand)  | Limited by API (90 days typical)       |
+
+REAL-WORLD APIS USED FOR MARKET ANALYSIS:
+=========================================
+
+1. **Keepa API** (Price Tracking)
+   - Tracks Amazon price history since 2011
+   - Pricing: €19/month for 1M requests
+   - Data: Price, sales rank, ratings over time
+   - Coverage: Amazon marketplaces worldwide
+   
+2. **CamelCamelCamel API**
+   - Amazon price tracking
+   - Free tier: 60 requests/hour
+   - Historical price charts and alerts
+   
+3. **Google Trends API** (pytrends)
+   - Search interest over time
+   - Free but rate limited
+   - Regional and temporal search patterns
+   
+4. **Amazon Product Advertising API**
+   - Official Amazon product data
+   - Pricing: Commission-based (no direct fees)
+   - Requires associate account
+   - Data: Price, reviews, ratings, availability
+   
+5. **Walmart Open API**
+   - Product catalog and pricing
+   - Free tier available
+   - Search, product details, reviews
+   
+6. **eBay Finding API**
+   - Marketplace data and pricing
+   - Free with eBay developer account
+   - Historical sold listings for price trends
+
+HYBRID APPROACH (Current Implementation):
+========================================
+Supports both mock and real data:
+
+```python
+# Development: Use mock data (fast, free, reliable)
+analyzer = MarketTrendAnalyzerTool(use_mock_data=True)
+trends = analyzer.execute(input_data)
+
+# Production: Use real APIs (accurate, up-to-date)
+analyzer = MarketTrendAnalyzerTool(use_mock_data=False)
+trends = analyzer.execute(input_data)
+
+# Graceful Degradation: Try real API, fallback to mock
+if api_call_fails:
+    logger.warning("API unavailable, using simulated data")
+    trends = generate_mock_trends()
+```
+
+WHY MOCK DATA FOR THIS PROJECT:
+==============================
+1. **Demonstration Focus**: Shows trend analysis logic, not API integration
+2. **No Dependencies**: Works without external API accounts
+3. **Reproducibility**: Same patterns for testing and evaluation
+4. **Speed**: Instant generation vs 1-5 second API calls
+5. **Cost**: Zero vs $20-50/month for real data access
+6. **Reliability**: No rate limits, downtime, or authentication issues
+7. **Simplicity**: No API key management or error handling complexity
+8. **Offline**: Works in sandboxed/air-gapped environments
+
+PRODUCTION MIGRATION PATH:
+=========================
+To switch to real market data:
+
+1. Sign up for APIs:
+   - Keepa: https://keepa.com/#!api
+   - Google Cloud: Enable Trends API
+   - Amazon: Get Product Advertising API credentials
+
+2. Install dependencies:
+   ```bash
+   pip install keepa pytrends amazon-paapi
+   ```
+
+3. Configure credentials:
+   ```bash
+   export KEEPA_API_KEY="your_key"
+   export AMAZON_ACCESS_KEY="your_key"
+   export AMAZON_SECRET_KEY="your_secret"
+   ```
+
+4. Change tool initialization:
+   ```python
+   tool = MarketTrendAnalyzerTool(use_mock_data=False)
+   ```
+
+5. Add error handling and caching (already built-in)
+
+6. Monitor API usage and costs
+
+The tool interface remains identical - only data source changes.
 """
 
 import json

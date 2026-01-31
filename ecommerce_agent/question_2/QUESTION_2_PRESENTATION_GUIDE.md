@@ -425,7 +425,7 @@ A: "Yes! The data structures are library-agnostic. They work with matplotlib, pl
 - Total demo: 6-8 minutes
 - Leave 3-5 minutes for questions
 - Have notebook ready for interactive demos
-- Can show [question_2_presentation.ipynb](question_2_presentation.ipynb) for visual walkthrough
+- Can show [QUESTION_2_PRESENTATION.ipynb](../notebooks/QUESTION_2_PRESENTATION.ipynb) for visual walkthrough
 
 ---
 

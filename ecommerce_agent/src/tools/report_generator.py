@@ -7,6 +7,370 @@ This tool demonstrates:
 - Context Management (25%) - Passes structured data efficiently
 - Prompt Engineering (25%) - Task-specific prompt for recommendation generation
 - Innovation (25%) - Multiple output formats, markdown generation, visualizations
+
+MOCK LLM vs REAL LLM API FOR REPORT GENERATION:
+==============================================
+
+MOCK/TEMPLATE-BASED APPROACH (Current Implementation):
+When use_llm=False (default for development):
+- Uses predefined templates with dynamic data insertion
+- Rule-based recommendation generation
+- Instant execution without API latency
+- Deterministic and reproducible outputs
+- Zero cost for unlimited report generation
+
+Example Flow:
+1. Input: AnalysisResult with product data, sentiment, competitors
+2. Process:
+   a) Extract key metrics (price, sentiment score, competitor count)
+   b) Apply business logic rules to generate recommendations
+   c) Fill templates with structured data
+   d) Generate visualization configurations
+3. Output: Complete report with recommendations and charts
+
+Code Implementation (Mock/Template-Based):
+```python
+def _template_based_report(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+    # Extract key metrics
+    product_price = analysis_data.get('product_data', {}).get('price', 0)
+    sentiment_score = analysis_data.get('sentiment', {}).get('sentiment_score', 0)
+    competitor_count = len(analysis_data.get('competitors', []))
+    
+    # Rule-based recommendation generation
+    recommendations = []
+    
+    # Rule 1: Pricing strategy based on competitors
+    if competitor_count > 0:
+        avg_competitor_price = self._calculate_avg_price(analysis_data['competitors'])
+        price_diff_percent = ((product_price - avg_competitor_price) / avg_competitor_price) * 100
+        
+        if price_diff_percent > 15:
+            recommendations.append({
+                'category': 'Pricing',
+                'priority': 'High',
+                'recommendation': f'Consider price reduction. Currently {price_diff_percent:.1f}% above market average.',
+                'rationale': 'High price premium may limit market share',
+                'expected_impact': 'Could increase sales volume by 20-30%'
+            })
+        elif price_diff_percent < -15:
+            recommendations.append({
+                'category': 'Pricing',
+                'priority': 'Medium',
+                'recommendation': 'Consider slight price increase to improve margin.',
+                'rationale': 'Currently priced below competitors despite strong product',
+                'expected_impact': 'Could improve margin by 10-15%'
+            })
+    
+    # Rule 2: Customer satisfaction improvements
+    if sentiment_score < 0:
+        recommendations.append({
+            'category': 'Product Quality',
+            'priority': 'Critical',
+            'recommendation': 'Address customer complaints immediately.',
+            'rationale': f'Negative sentiment detected (score: {sentiment_score})',
+            'expected_impact': 'Essential to prevent further reputation damage'
+        })
+    elif sentiment_score < 0.5:
+        recommendations.append({
+            'category': 'Customer Experience',
+            'priority': 'High',
+            'recommendation': 'Improve customer service and product documentation.',
+            'rationale': 'Mixed sentiment indicates room for improvement',
+            'expected_impact': 'Could improve ratings from 3.5 to 4.2+'
+        })
+    
+    # Rule 3: Market positioning
+    recommendations.append({
+        'category': 'Marketing',
+        'priority': 'Medium',
+        'recommendation': 'Emphasize key differentiators in product listing.',
+        'rationale': f'Competing with {competitor_count} similar products',
+        'expected_impact': 'Improved conversion rate by 5-10%'
+    })
+    
+    # Generate executive summary using template
+    summary = self._generate_summary_template(
+        product_name=analysis_data.get('request', {}).get('product_query'),
+        sentiment=sentiment_score,
+        price_position='premium' if price_diff_percent > 10 else 'competitive',
+        key_finding=recommendations[0]['recommendation']
+    )
+    
+    return {
+        'executive_summary': summary,
+        'recommendations': recommendations,
+        'market_position': self._generate_market_position_points(analysis_data),
+        'customer_insights': self._generate_customer_insights(analysis_data),
+        'report_type': 'template_based'
+    }
+
+def _generate_summary_template(self, product_name: str, sentiment: float, 
+                               price_position: str, key_finding: str) -> str:
+    sentiment_label = 'positive' if sentiment > 0.3 else ('neutral' if sentiment > -0.2 else 'negative')
+    
+    return (
+        f"Analysis of {product_name} reveals {sentiment_label} customer sentiment "
+        f"with {price_position} pricing strategy. {key_finding} "
+        f"Key opportunities identified in pricing optimization and customer experience enhancement."
+    )
+```
+
+REAL LLM API APPROACH (Production):
+When use_llm=True and OpenAI API key provided:
+- Uses GPT-4 for sophisticated report synthesis
+- Natural language generation of insights
+- Contextual understanding across data sources
+- Adaptive tone and detail based on data
+- Higher quality but with cost and latency
+
+Example Flow:
+1. Input: Complete analysis data (product, sentiment, competitors, trends)
+2. Structure Context: Format data into LLM-friendly JSON
+   ```python
+   context = {
+       'product': {
+           'name': product_data['name'],
+           'price': product_data['price'],
+           'key_features': product_data['specifications']
+       },
+       'sentiment': {
+           'score': sentiment_data['sentiment_score'],
+           'themes': sentiment_data['key_themes'],
+           'total_reviews': sentiment_data['total_reviews']
+       },
+       'competitors': [
+           {'name': c['name'], 'price': c['price'], 'position': c['market_position']}
+           for c in competitor_data
+       ]
+   }
+   ```
+
+3. Build Prompt: Task-specific prompt with structured output requirements
+   ```python
+   prompt = f"""
+   You are a senior business analyst. Analyze this market data and generate
+   strategic recommendations:
+   
+   PRODUCT DATA:
+   {json.dumps(context, indent=2)}
+   
+   GENERATE:
+   1. Executive summary (2-3 sentences)
+   2. Market position analysis (3-4 points)
+   3. Customer insights (3-4 points)
+   4. Strategic recommendations (4-5 actionable items)
+   
+   Output as JSON: {expected_json_structure}
+   """
+   ```
+
+4. API Call: Send to GPT-4 for synthesis
+   ```python
+   response = self.client.chat.completions.create(
+       model="gpt-4",  # Higher quality for strategic analysis
+       messages=[
+           {"role": "system", "content": "You are a senior business analyst."},
+           {"role": "user", "content": prompt}
+       ],
+       response_format={"type": "json_object"},
+       temperature=0.7,  # Balance creativity and consistency
+       max_tokens=2000
+   )
+   ```
+
+5. Parse & Validate: Extract recommendations from LLM response
+   ```python
+   report = json.loads(response.choices[0].message.content)
+   
+   # Validate structure
+   required_keys = ['executive_summary', 'recommendations', 'market_position']
+   if not all(k in report for k in required_keys):
+       raise ValueError("Invalid LLM response structure")
+   ```
+
+6. Enhance: Add visualizations and formatting
+7. Output: Rich, naturally-written business report
+
+Code Implementation (Real LLM API):
+```python
+class ReportGeneratorTool(BaseTool):
+    def __init__(self, use_llm: bool = False):
+        super().__init__()
+        self.use_llm = use_llm and OPENAI_AVAILABLE
+        
+        if self.use_llm:
+            self.client = OpenAI(api_key=settings.openai_api_key)
+            logger.info("Report Generator with REAL LLM synthesis")
+        else:
+            logger.info("Report Generator with TEMPLATE-BASED synthesis")
+    
+    def _llm_generate_report(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+        # Structure data for LLM context
+        context = self._structure_context(analysis_data)
+        
+        # Build strategic analysis prompt
+        prompt = self.REPORT_PROMPT.format(
+            analysis_data=json.dumps(context, indent=2)
+        )
+        
+        try:
+            # Call GPT-4 for sophisticated analysis
+            response = self.client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a senior business analyst specializing in e-commerce strategy."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            # Parse LLM response
+            report = json.loads(response.choices[0].message.content)
+            
+            logger.info(f"LLM generated {len(report.get('recommendations', []))} recommendations")
+            
+            # Add metadata
+            report['report_type'] = 'llm_synthesized'
+            report['model_used'] = 'gpt-4'
+            report['generation_timestamp'] = datetime.now().isoformat()
+            
+            return report
+            
+        except Exception as e:
+            logger.error(f"LLM report generation failed: {e}")
+            logger.info("Falling back to template-based report")
+            return self._template_based_report(analysis_data)
+    
+    def execute(self, input_data: ReportGeneratorInput) -> ToolOutput:
+        try:
+            analysis_data = input_data.analysis_result
+            
+            # Choose generation method
+            if self.use_llm:
+                report_data = self._llm_generate_report(analysis_data)
+            else:
+                report_data = self._template_based_report(analysis_data)
+            
+            # Add visualizations (same for both approaches)
+            report_data['visualizations'] = self._create_visualization_data(analysis_data)
+            
+            # Generate markdown version
+            report_data['markdown'] = self._generate_markdown_report(report_data)
+            
+            return ToolOutput(
+                success=True,
+                data=report_data,
+                error=""
+            )
+            
+        except Exception as e:
+            logger.error(f"Report generation failed: {e}")
+            return ToolOutput(success=False, data={}, error=str(e))
+```
+
+COMPARISON TABLE:
+================
+| Aspect                 | Template-Based (Mock)           | Real LLM API (GPT-4)                  |
+|------------------------|---------------------------------|---------------------------------------|
+| Generation Method      | Rule-based + templates          | Neural network synthesis              |
+| Output Quality         | Structured, predictable         | Natural, contextual, nuanced          |
+| Customization          | Limited to predefined rules     | Adapts to any data pattern            |
+| Cost                   | Free                            | ~$0.06 per report (GPT-4)             |
+| Speed                  | <50ms                           | 2-5 seconds per report                |
+| Language Quality       | Template-like, formulaic        | Human-quality writing                 |
+| Insight Depth          | Basic pattern matching          | Deep contextual understanding         |
+| Error Handling         | Not needed                      | Requires fallback to templates        |
+| Dependencies           | None                            | openai library + API key              |
+| Offline Capability     | Yes                             | No                                    |
+| Consistency            | Identical for same input        | Slight variations (creative)          |
+| Multi-language Support | Requires manual templates       | Automatic with prompt change          |
+| Complex Synthesis      | Limited by rules                | Excels at connecting insights         |
+
+REAL-WORLD LLM USAGE COMPARISON:
+================================
+
+GPT-4 vs GPT-3.5-turbo for Report Generation:
+
+| Model          | Cost/1K tokens | Quality | Speed  | Use Case                |
+|----------------|----------------|---------|--------|-------------------------|
+| GPT-4          | $0.03 (input)  | ★★★★★   | 3-5s   | Strategic reports       |
+| GPT-3.5-turbo  | $0.0005        | ★★★☆☆   | 1-2s   | Quick summaries         |
+| Claude-3       | $0.015         | ★★★★☆   | 2-4s   | Long-form analysis      |
+
+For this tool: GPT-4 chosen for strategic depth and synthesis quality.
+
+WHY TEMPLATE-BASED (MOCK) FOR THIS PROJECT:
+==========================================
+1. **Demonstration Focus**: Shows report structure and logic, not LLM integration
+2. **Deterministic Testing**: Same input = same output for evaluation
+3. **Speed**: Instant generation vs 2-5 second API calls
+4. **Cost**: Zero vs $0.06 per report (adds up quickly)
+5. **Reliability**: No API downtime or rate limits
+6. **Offline**: Works in sandboxed environments
+7. **Transparency**: Logic is visible and auditable
+8. **Simplicity**: No API key management or error handling
+
+WHEN TO USE REAL LLM:
+====================
+- Production systems with budget for API costs
+- Need for natural language quality and tone
+- Complex data synthesis across many sources
+- Adaptive reports for different audiences
+- Multi-language support without templates
+- Insights that go beyond predefined rules
+
+HYBRID APPROACH (Best Practice):
+================================
+```python
+# Start with templates for structure
+report_structure = generate_template_report(data)
+
+# Use LLM for specific sections requiring nuance
+if use_llm and requires_deep_insight:
+    report_structure['executive_summary'] = llm_generate_summary(data)
+    report_structure['strategic_insights'] = llm_synthesize_insights(data)
+
+# Keep rule-based for factual sections
+report_structure['metrics'] = calculate_metrics(data)
+report_structure['visualizations'] = generate_charts(data)
+```
+
+This combines:
+- Speed and cost-efficiency of templates
+- Natural language quality of LLM where it matters most
+- Factual accuracy of rule-based calculations
+
+PRODUCTION MIGRATION PATH:
+=========================
+To enable LLM-powered reports:
+
+1. Set up OpenAI API:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+
+2. Change tool initialization:
+   ```python
+   # Development: Templates (fast, free)
+   tool = ReportGeneratorTool(use_llm=False)
+   
+   # Production: LLM (high quality, cost)
+   tool = ReportGeneratorTool(use_llm=True)
+   ```
+
+3. Monitor costs and usage
+4. Implement caching for common queries
+5. Use GPT-3.5-turbo for simple reports to reduce costs
+
+The tool interface remains identical - only internal generation changes.
 """
 
 import json
