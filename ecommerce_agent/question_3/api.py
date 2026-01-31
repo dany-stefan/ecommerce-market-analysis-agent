@@ -47,8 +47,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.agent.orchestrator import MarketAnalysisAgent, OrchestratorConfig, ExecutionStrategy
-from src.tools.product_collector import ProductCollectorTool
 from src.tools.sentiment_analyzer import SentimentAnalyzerTool
+from src.tools.market_trend_analyzer import MarketTrendAnalyzerTool
 from src.tools.report_generator import ReportGeneratorTool
 from src.utils.models import AnalysisRequest, AnalysisResult
 from config.settings import Settings
@@ -180,8 +180,8 @@ async def startup_event():
     )
     
     agent = MarketAnalysisAgent(config=config)
-    agent.register_tool(ProductCollectorTool(use_mock_data=True))
     agent.register_tool(SentimentAnalyzerTool(use_llm=False))
+    agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=True))
     agent.register_tool(ReportGeneratorTool(use_llm=False))
     
     logger.success(f"✅ Agent initialized with {len(agent.list_tools())} tools")

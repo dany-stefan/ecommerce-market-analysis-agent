@@ -43,7 +43,6 @@ from loguru import logger
 from openai import OpenAI
 from src.tools.base_tool import BaseTool
 from src.utils.models import AnalysisRequest, AnalysisResult, CompetitorData
-from src.tools.product_collector import ProductCollectorTool, ProductCollectorInput
 from src.tools.sentiment_analyzer import SentimentAnalyzerTool, SentimentAnalyzerInput
 from src.tools.report_generator import ReportGeneratorTool, ReportGeneratorInput
 from src.utils.mock_data import MockReviewsGenerator, MockCompetitorGenerator

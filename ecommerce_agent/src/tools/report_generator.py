@@ -113,56 +113,14 @@ def _generate_summary_template(self, product_name: str, sentiment: float,
         f"with {price_position} pricing strategy. {key_finding} "
         f"Key opportunities identified in pricing optimization and customer experience enhancement."
     )
-```
 
-REAL LLM API APPROACH (Production):
-When use_llm=True and OpenAI API key provided:
-- Uses GPT-4 for sophisticated report synthesis
-- Natural language generation of insights
-- Contextual understanding across data sources
-- Adaptive tone and detail based on data
-- Higher quality but with cost and latency
-
-Example Flow:
-1. Input: Complete analysis data (product, sentiment, competitors, trends)
-2. Structure Context: Format data into LLM-friendly JSON
-   ```python
-   context = {
-       'product': {
-           'name': product_data['name'],
-           'price': product_data['price'],
-           'key_features': product_data['specifications']
-       },
-       'sentiment': {
-           'score': sentiment_data['sentiment_score'],
-           'themes': sentiment_data['key_themes'],
-           'total_reviews': sentiment_data['total_reviews']
-       },
-       'competitors': [
-           {'name': c['name'], 'price': c['price'], 'position': c['market_position']}
-           for c in competitor_data
-       ]
-   }
-   ```
-
-3. Build Prompt: Task-specific prompt with structured output requirements
-   ```python
-   prompt = f"""
-   You are a senior business analyst. Analyze this market data and generate
-   strategic recommendations:
-   
-   PRODUCT DATA:
-   {json.dumps(context, indent=2)}
-   
-   GENERATE:
-   1. Executive summary (2-3 sentences)
-   2. Market position analysis (3-4 points)
-   3. Customer insights (3-4 points)
-   4. Strategic recommendations (4-5 actionable items)
-   
-   Output as JSON: {expected_json_structure}
-   """
-   ```
+    # REAL LLM API APPROACH (Production):
+    # When use_llm=True and OpenAI API key provided:
+    # - Uses GPT-4 for sophisticated report synthesis
+    # - Natural language generation of insights
+    # - Contextual understanding across data sources
+    # - Adaptive tone and detail based on data
+    # - Higher quality but with cost and latency
 
 4. API Call: Send to GPT-4 for synthesis
    ```python
@@ -381,6 +339,11 @@ from src.utils.models import AnalysisResult, ProductData, SentimentData, Competi
 from config.settings import settings
 from loguru import logger
 from datetime import datetime
+from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import numpy as np
 
 try:
     from openai import OpenAI
@@ -484,8 +447,20 @@ Format your response as JSON:
             
             # Generate visualization data structures
             visualizations = self._create_visualization_data(analysis_result)
+                        # Generate actual chart images
+            chart_paths = self._generate_chart_images(analysis_result, visualizations)
+            
+            # Add chart links to markdown report
+            if chart_paths:
+                markdown_report += "\n\n## Visualizations\n\n"
+                for chart_path in chart_paths:
+                    chart_name = Path(chart_path).stem.replace('_', ' ').title()
+                    markdown_report += f"![{chart_name}]({chart_path})\n\n"
+                        # Save report to reports folder
+            report_path = self._save_report(analysis_result, markdown_report)
             
             logger.success(f"Generated {len(recommendations)} recommendations with {len(visualizations)} visualizations")
+            logger.success(f"Report saved to: {report_path}")
             
             return ToolOutput(
                 success=True,
@@ -493,6 +468,7 @@ Format your response as JSON:
                     "recommendations": recommendations,
                     "markdown_report": markdown_report,
                     "visualizations": visualizations,
+                    "report_path": report_path,
                     "generated_at": datetime.now().isoformat()
                 }
             )
@@ -822,3 +798,150 @@ Format your response as JSON:
             }
         
         return visualizations
+    
+    def _generate_chart_images(self, analysis_result: AnalysisResult, visualizations: Dict[str, Any]) -> List[str]:
+        """
+        Generate actual chart images from visualization data and save them.
+        
+        Returns:
+            List of paths to generated chart images
+        """
+        chart_paths = []
+        reports_dir = Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        
+        product_name = analysis_result.product_data.name if analysis_result.product_data else "Product"
+        safe_name = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in product_name)
+        safe_name = safe_name.replace(' ', '_')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        try:
+            # 1. Price Comparison Bar Chart
+            if "price_comparison" in visualizations:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                data = visualizations["price_comparison"]["data"]
+                names = [item["name"] for item in data]
+                prices = [item["value"] for item in data]
+                colors = [item["color"] for item in data]
+                
+                bars = ax.bar(names, prices, color=colors, alpha=0.7, edgecolor='black')
+                ax.set_xlabel('Product', fontsize=12, fontweight='bold')
+                ax.set_ylabel('Price (USD)', fontsize=12, fontweight='bold')
+                ax.set_title('Price Comparison', fontsize=14, fontweight='bold')
+                ax.grid(axis='y', alpha=0.3, linestyle='--')
+                
+                # Add value labels on bars
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width()/2., height,
+                           f'${height:.0f}',
+                           ha='center', va='bottom', fontweight='bold')
+                
+                plt.xticks(rotation=45, ha='right')
+                plt.tight_layout()
+                chart_path = reports_dir / f"{safe_name}_price_comparison_{timestamp}.png"
+                plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                chart_paths.append(str(chart_path))
+                logger.info(f"Generated price comparison chart: {chart_path}")
+            
+            # 2. Sentiment Gauge/Score Visualization
+            if "sentiment_score" in visualizations:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sentiment_data = visualizations["sentiment_score"]
+                score = sentiment_data["value"]
+                
+                # Create gauge-like visualization
+                categories = ['Very\nNegative', 'Negative', 'Neutral', 'Positive', 'Very\nPositive']
+                colors_gauge = ['#D32F2F', '#FF6F00', '#FFA726', '#66BB6A', '#2E7D32']
+                values = [0.2] * 5  # Equal segments
+                
+                bars = ax.bar(categories, values, color=colors_gauge, alpha=0.6, edgecolor='black')
+                
+                # Highlight current sentiment
+                score_index = int((score + 1) / 0.4)  # Map -1 to 1 onto 0 to 4
+                score_index = max(0, min(4, score_index))
+                bars[score_index].set_alpha(1.0)
+                bars[score_index].set_linewidth(3)
+                
+                ax.set_ylim(0, 0.25)
+                ax.set_ylabel('', fontsize=12)
+                ax.set_title(f'Customer Sentiment Score: {score:.2f}', fontsize=14, fontweight='bold')
+                ax.set_yticks([])
+                
+                # Add score indicator
+                ax.axhline(y=0.15, color='black', linestyle='--', linewidth=2, alpha=0.7)
+                ax.text(score_index, 0.16, f'★ {score:.2f}', ha='center', fontsize=16, 
+                       fontweight='bold', color='black')
+                
+                plt.tight_layout()
+                chart_path = reports_dir / f"{safe_name}_sentiment_{timestamp}.png"
+                plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                chart_paths.append(str(chart_path))
+                logger.info(f"Generated sentiment chart: {chart_path}")
+            
+            # 3. Key Themes Bar Chart
+            if "key_themes" in visualizations and analysis_result.sentiment:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                themes = analysis_result.sentiment.key_themes[:5]  # Top 5 themes
+                weights = [100 - i*15 for i in range(len(themes))]  # Decreasing weights
+                
+                bars = ax.barh(themes, weights, color='#1976D2', alpha=0.7, edgecolor='black')
+                ax.set_xlabel('Importance Score', fontsize=12, fontweight='bold')
+                ax.set_ylabel('Theme', fontsize=12, fontweight='bold')
+                ax.set_title('Top Customer Themes', fontsize=14, fontweight='bold')
+                ax.grid(axis='x', alpha=0.3, linestyle='--')
+                
+                # Add value labels
+                for i, bar in enumerate(bars):
+                    width = bar.get_width()
+                    ax.text(width, bar.get_y() + bar.get_height()/2.,
+                           f'{width:.0f}',
+                           ha='left', va='center', fontweight='bold', fontsize=10)
+                
+                plt.tight_layout()
+                chart_path = reports_dir / f"{safe_name}_themes_{timestamp}.png"
+                plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                chart_paths.append(str(chart_path))
+                logger.info(f"Generated themes chart: {chart_path}")
+                
+        except Exception as e:
+            logger.warning(f"Chart generation failed: {e}")
+        
+        return chart_paths
+    
+    def _save_report(self, analysis_result: AnalysisResult, markdown_report: str) -> str:
+        """
+        Save the generated report to the reports folder.
+        
+        Args:
+            analysis_result: Analysis result containing product info
+            markdown_report: Formatted markdown report
+            
+        Returns:
+            Path to the saved report file
+        """
+        import os
+        from pathlib import Path
+        
+        # Create reports directory if it doesn't exist
+        reports_dir = Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        
+        # Generate filename from product name and timestamp
+        product_name = analysis_result.product_data.name if analysis_result.product_data else analysis_result.request.product_query
+        # Clean product name for filename
+        safe_name = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in product_name)
+        safe_name = safe_name.replace(' ', '_')
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{safe_name}_Report_{timestamp}.md"
+        
+        # Save report
+        report_path = reports_dir / filename
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_report)
+        
+        return str(report_path)

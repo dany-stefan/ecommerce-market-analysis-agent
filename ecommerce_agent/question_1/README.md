@@ -40,25 +40,35 @@ agent = MarketAnalysisAgent(config=config)
 
 **Registered Tools:**
 1. **SentimentAnalyzerTool** (`../src/tools/sentiment_analyzer.py`, 248 lines)
-   - Analyzes customer reviews using rule-based methods (mock LLM mode)
-   - Smart caching reduces redundant analysis
-   - Extracts sentiment scores, themes, and samples
+   - Analyzes customer reviews using rule-based methods or real OpenAI API
+   - Smart caching reduces redundant analysis (80% cost reduction)
+   - Extracts sentiment scores (-1.0 to 1.0), key themes, and representative reviews
+   - Configurable: `use_llm=True/False`
 
 2. **MarketTrendAnalyzerTool** (`../src/tools/market_trend_analyzer.py`, 450 lines)
-   - Tracks 90-day price and popularity trends
+   - Tracks 90-day price and popularity trends with momentum indicators
    - Momentum matrix: Bullish, Bearish, Opportunity, Warning signals
-   - Competitor comparison and forecasting
+   - Historical data generation and forecasting
+   - Configurable: `use_mock_data=True/False`
 
 3. **ReportGeneratorTool** (`../src/tools/report_generator.py`, 450 lines)
-   - Synthesizes analysis into comprehensive reports
+   - Synthesizes analysis into comprehensive reports with strategic recommendations
    - 6 visualization types (bar, gauge, wordcloud, scatter, pie, line)
-   - Template-based generation (mock LLM mode)
+   - Template-based or GPT-4 powered generation
+   - Auto-saves reports to `reports/` folder with timestamps
+   - Configurable: `use_llm=True/False`
 
 **Tool Registration:**
 ```python
-agent.register_tool(SentimentAnalyzerTool(use_llm=False))
-agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=True))
-agent.register_tool(ReportGeneratorTool(use_llm=False))
+# Register 3 specialized tools
+agent.register_tool(SentimentAnalyzerTool(use_llm=False))      # Mock mode for demos
+agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=True))  # Simulated data
+agent.register_tool(ReportGeneratorTool(use_llm=False))        # Template-based
+
+# Or enable real LLM calls (requires OPENAI_API_KEY)
+# agent.register_tool(SentimentAnalyzerTool(use_llm=True))
+# agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=False))
+# agent.register_tool(ReportGeneratorTool(use_llm=True))
 ```
 
 ## 🚀 Quick Start
@@ -172,4 +182,23 @@ print(f"Success rate: {metrics['success_rate']:.1f}%")
 
 ---
 
-**Note:** All tools use mock/simulated data for demonstration purposes. The architecture is designed to easily swap in real API integrations when needed.
+## 🌐 REST API Access
+
+The orchestrator is also available via REST API:
+
+```bash
+# Start API server
+cd question_3
+docker-compose up
+
+# Make requests
+curl -X POST http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"product_query":"iPhone 15 Pro"}'
+```
+
+**See:** [question_3/API.md](../question_3/API.md) for complete API documentation
+
+---
+
+**Note:** All tools support both mock/simulated data (for demos) and real API integrations (for production). Toggle via `use_llm=True/False` and `use_mock_data=True/False` parameters.

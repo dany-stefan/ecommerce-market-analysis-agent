@@ -31,7 +31,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM dependencies as application
 
 # Copy application code
-COPY . .
+COPY ../src /app/src
+COPY ../config /app/config
+COPY ../tests /app/tests
+COPY ../main.py /app/
+COPY ../requirements.txt /app/
+COPY api.py /app/
 
 # Create directories for outputs
 RUN mkdir -p reports logs
@@ -44,7 +49,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Default command: Run REST API server
-# Alternative commands:
-# - Generate reports: docker run <image> python generate_example_reports.py
-# - Run demo: docker run <image> python main.py
 CMD ["python", "api.py"]

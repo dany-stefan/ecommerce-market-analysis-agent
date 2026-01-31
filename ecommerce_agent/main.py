@@ -31,8 +31,7 @@ def demo_question_1():
     config = OrchestratorConfig(
         execution_strategy=ExecutionStrategy.PARALLEL,  # Parallel execution for speed
         max_retries=3,                                  # Retry failed operations
-        enable_metrics=True,                            # Track performance metrics
-        timeout=30                                      # 30s timeout per tool
+        enable_metrics=True                             # Track performance metrics
     )
     
     agent = MarketAnalysisAgent(config=config)
@@ -159,12 +158,15 @@ def demo_question_2():
     
     trend_data = trend_result.data
     print(f"\n📈 90-Day Trend Analysis:")
-    print(f"   Price Trend: {trend_data['price_trend'].upper()}")
-    print(f"   Price Change: {trend_data['price_change_percent']:+.1f}%")
-    print(f"   Popularity Trend: {trend_data['popularity_trend'].upper()}")
-    print(f"   Popularity Change: {trend_data['popularity_change_percent']:+.1f}%")
-    print(f"   Market Momentum: {trend_data['current_momentum'].upper()}")
-    print(f"\n   💡 Forecast: {trend_data['forecast_summary'][:100]}...")
+    print(f"   Price Trend: {trend_data.get('price_trend', 'N/A').upper()}")
+    if 'price_change_percent' in trend_data:
+        print(f"   Price Change: {trend_data['price_change_percent']:+.1f}%")
+    print(f"   Popularity Trend: {trend_data.get('popularity_trend', 'N/A').upper()}")
+    if 'popularity_change' in trend_data:
+        print(f"   Popularity Change: {trend_data['popularity_change']:+.1f}%")
+    print(f"   Market Momentum: {trend_data.get('current_momentum', 'N/A').upper()}")
+    if 'forecast_summary' in trend_data:
+        print(f"\n   💡 Forecast: {trend_data['forecast_summary'][:100]}...")
     
     # === TOOL 3: Report Generator ===
     print("\n" + "-" * 80)
@@ -173,39 +175,68 @@ def demo_question_2():
     
     report_tool = ReportGeneratorTool(use_llm=False)
     
-    # Create comprehensive analysis result
-    analysis_result = AnalysisResult(
-        product_data={"name": "iPhone 15 Pro", "price": 999},
-        sentiment=sentiment_result.data,
-        competitors=[
-            {"competitor_name": "Samsung Galaxy S24", "price": 899},
-            {"competitor_name": "Google Pixel 8 Pro", "price": 899},
+    # Create comprehensive analysis data as dict
+    analysis_data = {
+        "product_data": {
+            "name": "iPhone 15 Pro", 
+            "price": 999,
+            "currency": "USD",
+            "source": "mock"
+        },
+        "sentiment": sentiment_result.data,
+        "competitors": [
+            {
+                "product_name": "Samsung Galaxy S24", 
+                "price": 899,
+                "market_position": "competitor",
+                "key_features": ["Great camera", "Good battery"]
+            },
+            {
+                "product_name": "Google Pixel 8 Pro", 
+                "price": 899,
+                "market_position": "competitor",
+                "key_features": ["AI features", "Clean software"]
+            },
         ],
-        recommendations=[],
-        metadata={"trends": trend_data}
-    )
+        "trends": trend_data
+    }
     
     report_result = report_tool.run(ReportGeneratorInput(
-        analysis_result=analysis_result
+        analysis_result=analysis_data
     ))
     
     report_data = report_result.data
     print(f"\n📄 Report Generated:")
-    print(f"   Recommendations: {len(report_data['recommendations'])}")
-    for i, rec in enumerate(report_data['recommendations'][:3], 1):
-        print(f"     {i}. {rec}")
+    if report_data.get('success') and 'recommendations' in report_data:
+        print(f"   Recommendations: {len(report_data['recommendations'])}")
+        for i, rec in enumerate(report_data['recommendations'][:3], 1):
+            print(f"     {i}. {rec}")
     
-    print(f"\n   Visualizations: {len(report_data['visualizations'])} chart types")
-    for viz_type in report_data['visualizations'].keys():
-        print(f"     • {viz_type}")
+    if 'visualizations' in report_data:
+        print(f"\n   Visualizations: {len(report_data['visualizations'])} chart types")
+        for viz_type in report_data['visualizations'].keys():
+            print(f"     • {viz_type}")
     
-    print(f"\n   Report Length: {len(report_data['report'])} characters")
+    if 'report' in report_data:
+        print(f"\n   Report Length: {len(report_data['report'])} characters")
+    elif 'markdown_report' in report_data:
+        print(f"\n   Report Length: {len(report_data['markdown_report'])} characters")
+        report_content = report_data['markdown_report']
+    else:
+        report_content = str(report_data)
     
     # Save report to file
     os.makedirs("reports", exist_ok=True)
     report_path = "reports/DEMO_iPhone_15_Pro_Report.md"
+    if 'markdown_report' in report_data:
+        report_content = report_data['markdown_report']
+    elif 'report' in report_data:
+        report_content = report_data['report']
+    else:
+        report_content = str(report_data)
+    
     with open(report_path, 'w') as f:
-        f.write(report_data['report'])
+        f.write(report_content)
     print(f"   Saved to: {report_path}")
     
     print("\n✅ Question 2 Demo Complete!")

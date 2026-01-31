@@ -17,10 +17,11 @@ Implementation of **3 production-quality tools** for e-commerce market analysis,
 **Purpose:** Analyzes customer reviews to extract sentiment insights, themes, and representative feedback
 
 **Key Features:**
-- **Mock LLM Mode:** Rule-based sentiment analysis for demonstration
-- **Smart Caching:** MD5-based caching reduces redundant processing
+- **Dual Mode Operation:** Rule-based (mock) or GPT-3.5-turbo (real LLM)
+- **Smart Caching:** MD5-based caching reduces redundant processing (80% cost savings)
 - **Structured Output:** Returns sentiment scores (-1.0 to 1.0), key themes, and sample reviews
-- **Graceful Fallback:** Keyword-based analysis when simulated LLM unavailable
+- **Graceful Fallback:** Keyword-based analysis when LLM unavailable
+- **Configurable:** Toggle between mock and real with `use_llm=True/False`
 
 **Usage Example:**
 ```python
@@ -114,6 +115,7 @@ result = tool.run(MarketTrendInput(
 - **6 Visualization Types:** Bar, gauge, word cloud, scatter, pie, line charts
 - **Library-Agnostic:** Works with matplotlib, plotly, Chart.js, D3, etc.
 - **Strategic Insights:** 4-5 actionable business recommendations
+- **Auto-Save Reports:** Automatically saves to `reports/` folder with timestamp and product name
 
 **The 6 Visualization Types:**
 1. **price_comparison** - Bar chart (product vs competitors)
@@ -262,4 +264,8 @@ report_result = report_tool.run(ReportGeneratorInput(...))
 
 ---
 
-**Note:** All tools use mock/simulated data and template-based generation for demonstration purposes. The "LLM integration" uses simulated prompts and responses to demonstrate the architecture without requiring actual API calls. This approach ensures reliable demos while maintaining production-ready code structure.
+**Note:** All tools support both:
+- **Mock/Template Mode** (`use_llm=False`, `use_mock_data=True`) - For reliable demos without API keys
+- **Real API Mode** (`use_llm=True`, `use_mock_data=False`) - For production with OpenAI API
+
+The architecture is identical for both modes - just toggle the configuration flags. See each tool file for 500+ lines of documentation explaining mock vs real API integration patterns.

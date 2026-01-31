@@ -8,14 +8,15 @@ services:
   # API Server Mode (Primary - Question 1 REST API)
   # ============================================================================
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: question_3/Dockerfile
     container_name: market_analysis_api
     ports:
       - "8000:8000"
     volumes:
-      - ./reports:/app/reports
-      - ./logs:/app/logs
-      - ./config:/app/config
+      - ../reports:/app/reports
+      - ../logs:/app/logs
     environment:
       - VERBOSE_LOGGING=true
       - MAX_ITERATIONS=5
