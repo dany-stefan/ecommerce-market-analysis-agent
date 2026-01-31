@@ -36,8 +36,11 @@ from enum import Enum
 from datetime import datetime
 import time
 import asyncio
+import os
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
+from openai import OpenAI
 from src.tools.base_tool import BaseTool
 from src.utils.models import AnalysisRequest, AnalysisResult, CompetitorData
 from src.tools.product_collector import ProductCollectorTool, ProductCollectorInput
@@ -63,7 +66,7 @@ class ExecutionStrategy(Enum):
 
 
 class OrchestratorConfig:
-    """Configuration for orchestrator behavior"""
+    """Configuration for orchestrator behavior with LLM integration"""
     
     def __init__(
         self,
@@ -72,7 +75,11 @@ class OrchestratorConfig:
         execution_strategy: ExecutionStrategy = ExecutionStrategy.SEQUENTIAL,
         enable_fallbacks: bool = True,
         enable_metrics: bool = True,
-        timeout_seconds: Optional[float] = 300.0
+        timeout_seconds: Optional[float] = 300.0,
+        use_llm: bool = False,
+        llm_model: str = "gpt-4",
+        llm_temperature: float = 0.7,
+        llm_max_tokens: int = 2000
     ):
         self.max_retries = max_retries
         self.retry_delay = retry_delay
@@ -80,6 +87,11 @@ class OrchestratorConfig:
         self.enable_fallbacks = enable_fallbacks
         self.enable_metrics = enable_metrics
         self.timeout_seconds = timeout_seconds
+        # LLM Configuration
+        self.use_llm = use_llm
+        self.llm_model = llm_model
+        self.llm_temperature = llm_temperature
+        self.llm_max_tokens = llm_max_tokens
         
     # CrewAI handles configuration automatically with sensible defaults
 
@@ -201,7 +213,7 @@ class MarketAnalysisAgent:
     
     def __init__(self, config: Optional[OrchestratorConfig] = None):
         """
-        Initialize the orchestrator with enhanced configuration
+        Initialize the orchestrator with enhanced configuration and optional LLM integration
         
         Native: Manual tool registry with configuration
         CrewAI: Crew initialization with agents and tasks
@@ -224,6 +236,16 @@ class MarketAnalysisAgent:
             "tool_executed": [],
             "error_occurred": []
         }
+        
+        # Initialize LLM client if enabled
+        self.llm_client = None
+        if self.config.use_llm:
+            try:
+                self.llm_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))  # $ LLM CLIENT
+                logger.info(f"🤖 LLM integration enabled: {self.config.llm_model}")
+            except Exception as e:
+                logger.warning(f"LLM initialization failed: {e}. Falling back to mock data.")
+                self.config.use_llm = False
     
     def register_tool(self, tool: BaseTool):
         """
@@ -653,13 +675,241 @@ class MarketAnalysisAgent:
         
         return health
     
+    def _llm_product_research(self, product_query: str) -> Dict[str, Any]:
+        """
+        Use LLM with prompt engineering for product research
+        
+        Prompt Engineering Strategy:
+        - Role: E-commerce product research specialist
+        - Task: Gather comprehensive product data
+        - Context: Market analysis for competitive intelligence
+        - Format: Structured JSON output
+        """
+        prompt = f"""You are an expert e-commerce product research analyst with deep knowledge of consumer electronics and online marketplaces.
+
+TASK: Research and compile comprehensive data for the following product.
+
+PRODUCT: {product_query}
+
+PROVIDE THE FOLLOWING IN JSON FORMAT:
+{{
+    "name": "Full product name",
+    "price": <numeric price in USD>,
+    "currency": "USD",
+    "description": "Detailed product description (2-3 sentences)",
+    "specifications": {{
+        "key_spec_1": "value",
+        "key_spec_2": "value",
+        "key_spec_3": "value"
+    }},
+    "availability": "In Stock / Out of Stock / Pre-Order",
+    "source": "Primary marketplace (e.g., Amazon, Best Buy, Official)",
+    "category": "Product category"
+}}
+
+IMPORTANT:
+- Use realistic pricing based on current market
+- Include 3-5 relevant specifications
+- Be specific and factual
+- Respond with ONLY the JSON object, no additional text"""
+
+        try:
+            response = self.llm_client.chat.completions.create(  # $ LLM API CALL
+                model=self.config.llm_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,  # Lower temperature for factual data
+                max_tokens=800
+            )
+            
+            # Parse JSON response
+            content = response.choices[0].message.content.strip()
+            # Remove markdown code blocks if present
+            if content.startswith('```'):
+                content = content.split('```')[1]
+                if content.startswith('json'):
+                    content = content[4:]
+            
+            product_data = json.loads(content)  # $ PARSE LLM RESPONSE
+            
+            logger.info(f"✅ LLM product research: {product_data.get('name')}")
+            return {
+                "success": True,
+                "data": product_data,
+                "error": ""
+            }
+            
+        except Exception as e:
+            logger.error(f"LLM product research failed: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": f"LLM research failed: {str(e)}"
+            }
+    
+    def _llm_sentiment_analysis(self, product_query: str) -> Dict[str, Any]:
+        """
+        Use LLM with prompt engineering for sentiment analysis
+        
+        Prompt Engineering Strategy:
+        - Role: Customer feedback analyst
+        - Task: Analyze customer sentiment
+        - Context: Market analysis and customer insights
+        - Format: Structured sentiment data with themes
+        """
+        prompt = f"""You are an expert customer sentiment analyst specializing in e-commerce product reviews and customer feedback analysis.
+
+TASK: Analyze customer sentiment for this product based on typical online reviews.
+
+PRODUCT: {product_query}
+
+GENERATE A REALISTIC SENTIMENT ANALYSIS IN JSON FORMAT:
+{{
+    "overall_sentiment": "positive/negative/neutral",
+    "sentiment_score": <float between -1.0 and 1.0>,
+    "total_reviews": <realistic review count>,
+    "key_themes": [
+        "Theme 1: Common praise/complaint",
+        "Theme 2: Common praise/complaint",
+        "Theme 3: Common praise/complaint"
+    ],
+    "sample_reviews": [
+        "Realistic customer review 1 (2-3 sentences)",
+        "Realistic customer review 2 (2-3 sentences)",
+        "Realistic customer review 3 (2-3 sentences)"
+    ],
+    "rating_distribution": {{
+        "5_star": <percentage>,
+        "4_star": <percentage>,
+        "3_star": <percentage>,
+        "2_star": <percentage>,
+        "1_star": <percentage>
+    }}
+}}
+
+GUIDELINES:
+- Base sentiment on known product reputation
+- Use realistic review counts (100-5000 range)
+- Generate authentic-sounding customer reviews
+- Sentiment score: 0.7-1.0 (positive), -0.3-0.3 (neutral), -1.0--0.3 (negative)
+- Respond with ONLY the JSON object"""
+
+        try:
+            response = self.llm_client.chat.completions.create(  # $ LLM API CALL
+                model=self.config.llm_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,  # Higher temperature for creative reviews
+                max_tokens=1200
+            )
+            
+            content = response.choices[0].message.content.strip()
+            if content.startswith('```'):
+                content = content.split('```')[1]
+                if content.startswith('json'):
+                    content = content[4:]
+            
+            sentiment_data = json.loads(content)  # $ PARSE LLM RESPONSE
+            
+            logger.info(f"✅ LLM sentiment analysis: {sentiment_data.get('overall_sentiment')} ({sentiment_data.get('sentiment_score')})")
+            return {
+                "success": True,
+                "data": sentiment_data,
+                "error": ""
+            }
+            
+        except Exception as e:
+            logger.error(f"LLM sentiment analysis failed: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": f"LLM sentiment analysis failed: {str(e)}"
+            }
+    
+    def _llm_competitor_research(self, product_query: str) -> Dict[str, Any]:
+        """
+        Use LLM with prompt engineering for competitor analysis
+        
+        Prompt Engineering Strategy:
+        - Role: Competitive intelligence analyst
+        - Task: Identify and analyze competitors
+        - Context: Market positioning and pricing strategy
+        - Format: Array of competitor data
+        """
+        prompt = f"""You are a competitive intelligence analyst specializing in e-commerce market research and product positioning.
+
+TASK: Identify and analyze the top 5 direct competitors for this product.
+
+PRODUCT: {product_query}
+
+GENERATE COMPETITOR ANALYSIS IN JSON FORMAT:
+[
+    {{
+        "name": "Competitor product name",
+        "price": <numeric price in USD>,
+        "currency": "USD",
+        "description": "Brief description (1-2 sentences)",
+        "key_features": [
+            "Feature 1",
+            "Feature 2",
+            "Feature 3"
+        ],
+        "market_position": "Premium/Mid-range/Budget",
+        "strengths": "Key competitive advantages",
+        "weaknesses": "Notable disadvantages"
+    }},
+    // ... 4 more competitors
+]
+
+GUIDELINES:
+- Identify REAL competitors in the same product category
+- Include price range from budget to premium options
+- Highlight differentiating features
+- Be specific about market positioning
+- Respond with ONLY the JSON array of 5 competitors"""
+
+        try:
+            response = self.llm_client.chat.completions.create(  # $ LLM API CALL
+                model=self.config.llm_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5,  # Balanced creativity and accuracy
+                max_tokens=1500
+            )
+            
+            content = response.choices[0].message.content.strip()
+            if content.startswith('```'):
+                content = content.split('```')[1]
+                if content.startswith('json'):
+                    content = content[4:]
+            
+            competitors_data = json.loads(content)  # $ PARSE LLM RESPONSE
+            
+            logger.info(f"✅ LLM competitor research: {len(competitors_data)} competitors identified")
+            return {
+                "success": True,
+                "data": competitors_data,
+                "error": ""
+            }
+            
+        except Exception as e:
+            logger.error(f"LLM competitor research failed: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": f"LLM competitor research failed: {str(e)}"
+            }
+    
     def _collect_product_data(self, product_query: str) -> Dict[str, Any]:
         """
-        Execute product collector tool.
+        Execute product collector tool with optional LLM enhancement.
         
         Native: Direct tool execution with explicit input/output handling
         CrewAI: Handled by product_researcher agent executing research_task
+        LLM Mode: Use prompt-engineered LLM for realistic data generation
         """
+        # Use LLM if enabled
+        if self.config.use_llm and self.llm_client:  # $ LLM MODE CHECK
+            return self._llm_product_research(product_query)  # $ CALL LLM RESEARCH
+        
+        # Fallback to traditional tool execution
         if "ProductCollectorTool" not in self.tools:
             return {"success": False, "error": "ProductCollectorTool not registered"}
         
@@ -682,11 +932,17 @@ class MarketAnalysisAgent:
     
     def _analyze_sentiment(self, product_query: str) -> Dict[str, Any]:
         """
-        Execute sentiment analyzer tool with mock reviews.
+        Execute sentiment analyzer tool with optional LLM enhancement.
         
         Native: Manual review generation and tool execution
         CrewAI: sentiment_analyst agent executes sentiment_task with auto context
+        LLM Mode: Use prompt-engineered LLM for realistic sentiment analysis
         """
+        # Use LLM if enabled
+        if self.config.use_llm and self.llm_client:  # $ LLM MODE CHECK
+            return self._llm_sentiment_analysis(product_query)  # $ CALL LLM SENTIMENT
+        
+        # Fallback to traditional tool execution
         if "SentimentAnalyzerTool" not in self.tools:
             return {"success": False, "error": "SentimentAnalyzerTool not registered"}
         
@@ -716,11 +972,17 @@ class MarketAnalysisAgent:
     
     def _get_competitors(self, product_query: str) -> Dict[str, Any]:
         """
-        Get competitor data (mock for demonstration).
+        Get competitor data with optional LLM enhancement.
         
         Native: Direct mock data generation
         CrewAI: competitor_analyst agent executes competitor_task
+        LLM Mode: Use prompt-engineered LLM for realistic competitor research
         """
+        # Use LLM if enabled
+        if self.config.use_llm and self.llm_client:  # $ LLM MODE CHECK
+            return self._llm_competitor_research(product_query)  # $ CALL LLM COMPETITORS
+        
+        # Fallback to mock data
         try:
             # Use mock competitor generator
             competitors_data = MockCompetitorGenerator.get_competitors_for_product(product_query)  # $ GET COMPETITORS

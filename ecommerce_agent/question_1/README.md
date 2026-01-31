@@ -22,6 +22,7 @@ Implementation of a native Python agent for e-commerce market analysis with modu
 
 **Features:**
 - ✅ Native Python orchestration (no framework dependencies)
+- ✅ **LLM integration with prompt engineering** for realistic data generation
 - ✅ Configurable execution strategies (sequential, parallel, adaptive)
 - ✅ Retry logic with exponential backoff
 - ✅ Performance metrics tracking
@@ -33,13 +34,30 @@ Implementation of a native Python agent for e-commerce market analysis with modu
 ```python
 from src.agent.orchestrator import MarketAnalysisAgent, OrchestratorConfig, ExecutionStrategy
 
+# Standard configuration
 config = OrchestratorConfig(
     execution_strategy=ExecutionStrategy.PARALLEL,
     max_retries=3,
     enable_metrics=True
 )
-agent = MarketAnalysisAgent(config=config)
+
+# LLM-powered configuration (requires OPENAI_API_KEY)
+llm_config = OrchestratorConfig(
+    execution_strategy=ExecutionStrategy.PARALLEL,
+    use_llm=True,
+    llm_model="gpt-4",
+    llm_temperature=0.7,
+    enable_metrics=True
+)
+
+agent = MarketAnalysisAgent(config=llm_config)
 ```
+
+**LLM Integration:**
+- Product research using prompt-engineered LLM queries
+- Sentiment analysis with structured JSON responses
+- Competitor research with market intelligence prompts
+- Automatic fallback to mock data if LLM unavailable
 
 ### 2. REST API Interface
 **Location:** `../api.py`
@@ -95,6 +113,15 @@ docker-compose up test
 ```
 
 ## 🚀 Quick Start
+
+### Environment Setup
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Optional: Configure LLM integration
+export OPENAI_API_KEY="your-api-key-here"
+```
 
 ### CLI Demo
 ```bash
