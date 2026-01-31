@@ -3,6 +3,16 @@
 ## Overview
 An intelligent agent system designed to analyze e-commerce markets through tool orchestration and language model integration. This project emphasizes **clarity, modularity, and reusability** over complexity.
 
+### Context & Scenario
+We are developing a **market intelligence system** for e-commerce clients to provide automated and personalized market analyses based on real-time data. The agent orchestrates multiple analysis tools to produce comprehensive strategic reports on specific products or markets.
+
+### Core Capabilities
+The market analysis agent uses specialized tools to:
+- 📦 **Collect product data** from e-commerce platforms
+- 🔍 **Analyze competition** and market positioning
+- 💬 **Assess customer sentiment** from reviews and feedback
+- 📊 **Generate business recommendations** based on insights
+
 ## Project Philosophy
 
 ### Design Principles
@@ -60,8 +70,11 @@ python -m src.agent.main
 - [x] Initial documentation
 
 ### 🚧 In Progress
-- [ ] Core agent implementation
-- [ ] Tool development
+- [ ] Core agent orchestration engine
+- [ ] Product data collection tool
+- [ ] Competition analysis tool
+- [ ] Sentiment analysis tool
+- [ ] Recommendation generation tool
 - [ ] Testing framework
 
 ## Design Decisions Log
@@ -83,6 +96,20 @@ python -m src.agent.main
 - Tools can be combined in different ways
 - Easy to add new capabilities without modifying existing code
 - Facilitates future integration scenarios
+
+### 3. Four-Tool Architecture
+**Decision**: Create four specialized tools aligned with the market analysis workflow:
+1. **Product Data Collector**: Gathers product information, pricing, specifications
+2. **Competition Analyzer**: Compares similar products, market positioning
+3. **Sentiment Analyzer**: Processes customer reviews and feedback
+4. **Recommendation Generator**: Synthesizes insights into actionable recommendations
+
+**Justification**: This architecture:
+- Maps directly to the business requirements
+- Creates a clear analysis pipeline
+- Each tool has a distinct, measurable output
+- Allows for parallel execution where appropriate
+- Simple enough to explain in a presentation
 
 ---
 
