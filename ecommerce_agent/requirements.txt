@@ -1,0 +1,24 @@
+# Core dependencies for E-commerce Market Analysis Agent
+
+# Language Model & AI
+openai>=1.0.0                # OpenAI API for LLM capabilities
+anthropic>=0.7.0             # Alternative LLM provider
+
+# Web Scraping & Data Collection
+requests>=2.31.0             # HTTP library for API calls
+beautifulsoup4>=4.12.0       # HTML parsing for web scraping
+selenium>=4.15.0             # Browser automation if needed
+
+# Data Processing
+pandas>=2.1.0                # Data manipulation and analysis
+numpy>=1.24.0                # Numerical operations
+
+# Utilities
+python-dotenv>=1.0.0         # Environment variable management
+pydantic>=2.5.0              # Data validation and settings management
+loguru>=0.7.0                # Better logging
+
+# Development
+pytest>=7.4.0                # Testing framework
+black>=23.0.0                # Code formatting
+flake8>=6.1.0                # Linting
