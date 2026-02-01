@@ -177,6 +177,12 @@ def demo_question_2():
     
     # Create comprehensive analysis data as dict
     analysis_data = {
+        "request": {
+            "product_query": "iPhone 15 Pro",
+            "analysis_depth": "standard",
+            "include_competitors": True,
+            "include_sentiment": True
+        },
         "product_data": {
             "name": "iPhone 15 Pro", 
             "price": 999,
@@ -186,12 +192,14 @@ def demo_question_2():
         "sentiment": sentiment_result.data,
         "competitors": [
             {
+                "competitor_name": "Samsung",
                 "product_name": "Samsung Galaxy S24", 
                 "price": 899,
                 "market_position": "competitor",
                 "key_features": ["Great camera", "Good battery"]
             },
             {
+                "competitor_name": "Google",
                 "product_name": "Google Pixel 8 Pro", 
                 "price": 899,
                 "market_position": "competitor",

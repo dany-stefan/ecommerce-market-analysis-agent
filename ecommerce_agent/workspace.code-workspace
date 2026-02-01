@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^python3 -m venv venv && echo \"Virtual environment created successfully\"$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
+}
