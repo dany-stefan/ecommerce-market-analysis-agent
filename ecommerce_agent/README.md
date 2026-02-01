@@ -140,10 +140,11 @@ health = agent.health_check()      # All tools: healthy
 - Configurable strategy selection
 
 **Testing:**
-- 17 tests covering tools, orchestration, errors
-- ~70% coverage of critical paths
+- **test_agent.py** contains 7 core test categories (16 tests total)
+- Use `python3 run_tests.py --quick` for fast validation (5 tests)
+- Use `python3 run_tests.py` for comprehensive testing (16 tests)
 - All tests pass in <3 seconds
-- No external API dependencies in test mode
+- See [TESTING.md](./TESTING.md) for easy test commands
 
 **DevOps:**
 - Docker containerization

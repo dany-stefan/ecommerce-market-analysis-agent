@@ -127,6 +127,36 @@ Simply change all `use_llm=True` back to `use_llm=False` in `main.py` - no API c
 
 ---
 
+## 🧪 Quick Testing (7 Categories)
+
+### **Easy Test Runner**
+```bash
+# Quick test (5 representative tests)
+python3 run_tests.py --quick
+
+# All tests (16 tests across 7 categories)  
+python3 run_tests.py
+
+# Show test categories
+python3 run_tests.py --category
+```
+
+### **Manual Testing**
+```bash
+# Test specific category
+python3 -m pytest tests/test_agent.py::TestConfiguration -v
+python3 -m pytest tests/test_agent.py::TestIndividualTools -v
+
+# Test single case
+python3 -m pytest tests/test_agent.py::TestConfiguration::test_orchestrator_config_creation -v
+```
+
+**✅ Expected:** All 16 tests pass in ~3 seconds (only Pydantic warnings)
+
+📖 **See [TESTING.md](./TESTING.md) for complete testing guide**
+
+---
+
 ## �📋 Table of Contents
 
 - [Prerequisites](#prerequisites)
