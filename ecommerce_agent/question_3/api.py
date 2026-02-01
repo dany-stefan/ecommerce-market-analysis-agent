@@ -1,53 +1,468 @@
 """
-REST API for E-commerce Market Analysis Agent
-Question 1: REST API Interface Implementation
+E-commerce Market Analysis REST API
 
-Native Approach: Using FastAPI for direct HTTP endpoint management
-Alternative Approach (commented): CrewAI with built-in API capabilities
+Production-ready FastAPI server with comprehensive endpoints for market analysis.
 
-Framework Choice Justification:
-Based on the framework comparison:
-┌────────────┬──────────────────────┬─────────────────────────────┬──────────────────────────┐
-│ Framework  │ Best For...          │ Key Advantage               │ Typical Use Case         │
-├────────────┼──────────────────────┼─────────────────────────────┼──────────────────────────┤
-│ CrewAI     │ Rapid Prototyping    │ Easiest for role-based      │ Research, content        │
-│            │                      │ multi-agent teams           │ pipelines                │
-├────────────┼──────────────────────┼─────────────────────────────┼──────────────────────────┤
-│ LangGraph  │ Surgical Control     │ Precise state management    │ Complex SaaS products    │
-├────────────┼──────────────────────┼─────────────────────────────┼──────────────────────────┤
-│ Google ADK │ Enterprise Scale     │ Tight Google Cloud          │ Multimodal agents,       │
-│            │                      │ integration                 │ large-scale apps         │
-└────────────┴──────────────────────┴─────────────────────────────┴──────────────────────────┘
+Features:
+- Synchronous and asynchronous analysis endpoints
+- Health monitoring and metrics
+- Tool management
+- Request validation with Pydantic
+- Error handling and logging
+- CORS support
+- API documentation with Swagger UI
 
-CrewAI was selected for comparison because:
-1. **Rapid Prototyping**: Perfect for 5-hour assignment timeline
-2. **Role-Based Architecture**: Matches our tool-based agent design naturally
-3. **Built-in Orchestration**: Simplifies agent coordination compared to manual orchestration
-4. **Lower Learning Curve**: Easiest to demonstrate alternative implementation approach
-5. **Market Analysis Fit**: Designed for research/analysis workflows like ours
-
-However, we chose the Native Approach for:
-- Maximum control and transparency for evaluation
-- No framework lock-in or abstraction layers
-- Easier to demonstrate technical implementation skills
-- Better for understanding core orchestration concepts
+Start with: python api.py
+Docs: http://localhost:8000/docs
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import asyncio
+import json
+import uuid
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field, validator
 import uvicorn
-from datetime import datetime
 from loguru import logger
-import os
+
+# Import agent components
 import sys
-
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
+sys.path.append('..')
 from src.agent.orchestrator import MarketAnalysisAgent, OrchestratorConfig, ExecutionStrategy
 from src.tools.sentiment_analyzer import SentimentAnalyzerTool
+from src.tools.market_trend_analyzer import MarketTrendAnalyzerTool
+from src.tools.report_generator import ReportGeneratorTool
+from src.tools.product_collector import ProductCollectorTool
+from src.utils.models import AnalysisRequest, AnalysisResult
+
+
+# Pydantic models for API requests/responses
+class APIAnalysisRequest(BaseModel):
+    """API request model with validation"""
+    product_query: str = Field(..., min_length=1, max_length=200, description="Product to analyze")
+    analysis_depth: str = Field(default="standard", regex="^(quick|standard|comprehensive)$")
+    include_competitors: bool = Field(default=True)
+    include_sentiment: bool = Field(default=True)
+    execution_strategy: str = Field(default="parallel", regex="^(sequential|parallel)$")
+    
+    @validator('product_query')
+    def validate_product_query(cls, v):
+        if not v.strip():
+            raise ValueError('Product query cannot be empty')
+        return v.strip()
+
+
+class APIAnalysisResponse(BaseModel):
+    """API response model"""
+    status: str
+    timestamp: str
+    approach: str = "native_orchestration"
+    execution_time: Optional[float] = None
+    result: Optional[Dict[str, Any]] = None
+    job_id: Optional[str] = None
+    message: Optional[str] = None
+
+
+class APIHealthResponse(BaseModel):
+    """Health check response model"""
+    status: str
+    timestamp: str
+    agent_ready: bool
+    tools_loaded: int
+    tools_health: Dict[str, str]
+    active_jobs: int
+    metrics: Dict[str, Any]
+
+
+class APIToolsResponse(BaseModel):
+    """Tools listing response model"""
+    approach: str
+    tools: List[str]
+    tool_details: Dict[str, Dict[str, str]]
+
+
+class APIMetricsResponse(BaseModel):
+    """Metrics response model"""
+    total_analyses: int
+    successful_analyses: int
+    failed_analyses: int
+    success_rate: float
+    average_execution_time: Optional[float] = None
+    tool_performance: Dict[str, float]
+    last_analysis_time: Optional[float] = None
+    uptime_seconds: float
+
+
+class AsyncJobStatus(BaseModel):
+    """Async job status model"""
+    job_id: str
+    status: str  # pending, processing, completed, failed
+    created_at: str
+    completed_at: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    progress: Optional[str] = None
+
+
+# Global app state
+class AppState:
+    def __init__(self):
+        self.agent: Optional[MarketAnalysisAgent] = None
+        self.async_jobs: Dict[str, AsyncJobStatus] = {}
+        self.start_time: datetime = datetime.now()
+        
+    def get_uptime(self) -> float:
+        return (datetime.now() - self.start_time).total_seconds()
+
+
+app_state = AppState()
+
+
+# FastAPI app initialization
+app = FastAPI(
+    title="E-commerce Market Analysis API",
+    description="Production-ready API for comprehensive market analysis using specialized AI tools",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Exception handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global exception: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "message": str(exc)}
+    )
+
+
+# Startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the agent and tools on startup"""
+    logger.info("🚀 Starting E-commerce Market Analysis API")
+    
+    try:
+        # Create optimized configuration for API usage
+        config = OrchestratorConfig(
+            execution_strategy=ExecutionStrategy.PARALLEL,  # Default to parallel for API
+            max_retries=3,
+            retry_delay=1.0,
+            enable_metrics=True,
+            timeout_seconds=120.0  # 2-minute timeout for API requests
+        )
+        
+        # Initialize agent
+        app_state.agent = MarketAnalysisAgent(config=config)
+        
+        # Register all tools
+        app_state.agent.register_tool(SentimentAnalyzerTool())
+        app_state.agent.register_tool(MarketTrendAnalyzerTool())
+        app_state.agent.register_tool(ReportGeneratorTool())
+        app_state.agent.register_tool(ProductCollectorTool())
+        
+        logger.info(f"✅ Initialized agent with {len(app_state.agent.tools)} tools")
+        logger.info(f"📊 Available tools: {', '.join(app_state.agent.list_tools())}")
+        
+        # Perform health check
+        health = app_state.agent.health_check()
+        logger.info(f"🏥 System health: {health['orchestrator']}")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize agent: {str(e)}")
+        raise
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("🔄 Shutting down E-commerce Market Analysis API")
+    
+    # Cancel any pending async jobs
+    for job_id, job in app_state.async_jobs.items():
+        if job.status in ["pending", "processing"]:
+            job.status = "cancelled"
+            logger.info(f"📋 Cancelled job: {job_id}")
+
+
+# API endpoints
+@app.get("/", response_model=Dict[str, Any])
+async def root():
+    """Root endpoint - API information and features"""
+    return {
+        "service": "E-commerce Market Analysis API",
+        "version": "1.0.0",
+        "status": "operational",
+        "approach": "Native Python Orchestration (Enhanced)",
+        "documentation": {
+            "swagger_ui": "/docs",
+            "redoc": "/redoc",
+            "api_guide": "../question_3/API.md"
+        },
+        "features": {
+            "retry_logic": "Exponential backoff with configurable retries",
+            "execution_strategies": ["sequential", "parallel", "adaptive"],
+            "metrics_tracking": "Built-in performance monitoring",
+            "health_checks": "Orchestrator and tool-level monitoring",
+            "event_hooks": "Extensible callback system",
+            "async_processing": "Background job support"
+        },
+        "endpoints": {
+            "health": "/health",
+            "tools": "/tools",
+            "metrics": "/metrics",
+            "analyze_sync": "/analyze",
+            "analyze_async": "/analyze/async",
+            "job_status": "/analyze/{job_id}"
+        }
+    }
+
+
+@app.get("/health", response_model=APIHealthResponse)
+async def health_check():
+    """Health check endpoint with detailed system status"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    # Get system health
+    health = app_state.agent.health_check()
+    metrics = app_state.agent.get_metrics()
+    
+    # Count active async jobs
+    active_jobs = len([j for j in app_state.async_jobs.values() 
+                      if j.status in ["pending", "processing"]])
+    
+    return APIHealthResponse(
+        status="healthy" if health["orchestrator"] == "healthy" else "degraded",
+        timestamp=datetime.now().isoformat(),
+        agent_ready=True,
+        tools_loaded=len(app_state.agent.tools),
+        tools_health=health["tools"],
+        active_jobs=active_jobs,
+        metrics={
+            "total_analyses": metrics["total_analyses"],
+            "success_rate": metrics["success_rate"],
+            "last_analysis_time": metrics["last_analysis_time"]
+        }
+    )
+
+
+@app.get("/tools", response_model=APIToolsResponse)
+async def list_tools():
+    """List all available analysis tools with descriptions"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    tools = app_state.agent.list_tools()
+    
+    # Get tool descriptions
+    tool_details = {}
+    for tool_name in tools:
+        tool = app_state.agent.tools[tool_name]
+        tool_details[tool_name] = {
+            "name": tool_name,
+            "description": tool.description if hasattr(tool, 'description') else "Analysis tool",
+            "status": "ready"
+        }
+    
+    return APIToolsResponse(
+        approach="native",
+        tools=tools,
+        tool_details=tool_details
+    )
+
+
+@app.get("/metrics", response_model=APIMetricsResponse)
+async def get_metrics():
+    """Get comprehensive system metrics"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    metrics = app_state.agent.get_metrics()
+    
+    return APIMetricsResponse(
+        total_analyses=metrics["total_analyses"],
+        successful_analyses=metrics["successful_analyses"],
+        failed_analyses=metrics["failed_analyses"],
+        success_rate=metrics["success_rate"],
+        tool_performance=metrics.get("average_tool_times", {}),
+        last_analysis_time=metrics["last_analysis_time"],
+        uptime_seconds=app_state.get_uptime()
+    )
+
+
+@app.post("/metrics/reset")
+async def reset_metrics():
+    """Reset all metrics counters"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    app_state.agent.reset_metrics()
+    
+    return {
+        "status": "success",
+        "message": "Metrics reset successfully",
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.post("/analyze", response_model=APIAnalysisResponse)
+async def analyze_product(request: APIAnalysisRequest):
+    """Synchronous product analysis endpoint"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    logger.info(f"🔍 Analysis request: {request.product_query}")
+    
+    try:
+        # Convert API request to internal format
+        internal_request = AnalysisRequest(
+            product_query=request.product_query,
+            analysis_depth=request.analysis_depth,
+            include_competitors=request.include_competitors,
+            include_sentiment=request.include_sentiment
+        )
+        
+        # Configure execution strategy
+        if request.execution_strategy == "sequential":
+            app_state.agent.config.execution_strategy = ExecutionStrategy.SEQUENTIAL
+        else:
+            app_state.agent.config.execution_strategy = ExecutionStrategy.PARALLEL
+        
+        # Execute analysis
+        start_time = datetime.now()
+        result = app_state.agent.analyze(internal_request)
+        execution_time = (datetime.now() - start_time).total_seconds()
+        
+        logger.info(f"✅ Analysis completed in {execution_time:.2f}s")
+        
+        return APIAnalysisResponse(
+            status="completed",
+            timestamp=datetime.now().isoformat(),
+            execution_time=execution_time,
+            result=result.model_dump()
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@app.post("/analyze/async", response_model=APIAnalysisResponse)
+async def analyze_product_async(request: APIAnalysisRequest, background_tasks: BackgroundTasks):
+    """Asynchronous product analysis endpoint"""
+    if not app_state.agent:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+    
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+    
+    # Create job status record
+    job_status = AsyncJobStatus(
+        job_id=job_id,
+        status="pending",
+        created_at=datetime.now().isoformat()
+    )
+    
+    app_state.async_jobs[job_id] = job_status
+    
+    # Add background task
+    background_tasks.add_task(process_async_analysis, job_id, request)
+    
+    logger.info(f"📋 Async analysis submitted: {job_id} for {request.product_query}")
+    
+    return APIAnalysisResponse(
+        status="accepted",
+        timestamp=datetime.now().isoformat(),
+        job_id=job_id,
+        message=f"Analysis job submitted. Check status at /analyze/{job_id}"
+    )
+
+
+@app.get("/analyze/{job_id}", response_model=AsyncJobStatus)
+async def get_analysis_status(job_id: str):
+    """Get status of asynchronous analysis job"""
+    if job_id not in app_state.async_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return app_state.async_jobs[job_id]
+
+
+# Background task for async processing
+async def process_async_analysis(job_id: str, request: APIAnalysisRequest):
+    """Process analysis in background"""
+    job = app_state.async_jobs[job_id]
+    
+    try:
+        job.status = "processing"
+        job.progress = "Starting analysis..."
+        
+        logger.info(f"🔄 Processing async job: {job_id}")
+        
+        # Convert API request to internal format
+        internal_request = AnalysisRequest(
+            product_query=request.product_query,
+            analysis_depth=request.analysis_depth,
+            include_competitors=request.include_competitors,
+            include_sentiment=request.include_sentiment
+        )
+        
+        # Configure execution strategy
+        if request.execution_strategy == "sequential":
+            app_state.agent.config.execution_strategy = ExecutionStrategy.SEQUENTIAL
+        else:
+            app_state.agent.config.execution_strategy = ExecutionStrategy.PARALLEL
+        
+        # Execute analysis
+        result = app_state.agent.analyze(internal_request)
+        
+        # Update job status
+        job.status = "completed"
+        job.completed_at = datetime.now().isoformat()
+        job.result = result.model_dump()
+        job.progress = "Analysis completed successfully"
+        
+        logger.info(f"✅ Async job completed: {job_id}")
+        
+    except Exception as e:
+        job.status = "failed"
+        job.error = str(e)
+        job.completed_at = datetime.now().isoformat()
+        job.progress = f"Analysis failed: {str(e)}"
+        
+        logger.error(f"❌ Async job failed: {job_id} - {str(e)}")
+
+
+# Development server startup
+if __name__ == "__main__":
+    logger.info("🚀 Starting E-commerce Market Analysis API server")
+    logger.info("📚 API Documentation: http://localhost:8000/docs")
+    logger.info("🔧 Health Check: http://localhost:8000/health")
+    
+    uvicorn.run(
+        "api:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
 from src.tools.market_trend_analyzer import MarketTrendAnalyzerTool
 from src.tools.report_generator import ReportGeneratorTool
 from src.utils.models import AnalysisRequest, AnalysisResult

@@ -1,6 +1,6 @@
 # Market Analysis Report
 
-**Generated:** 2026-01-31 18:24:41
+**Generated:** 2026-01-31 19:16:15
 
 **Product:** iPhone 15 Pro
 
@@ -23,7 +23,7 @@
 - **Overall:** POSITIVE
 - **Score:** 1.0/1.0
 - **Reviews Analyzed:** 8
-- **Key Themes:** pricing, build quality, camera quality, battery life
+- **Key Themes:** pricing, camera quality, build quality, battery life
 
 
 ## Competitive Landscape
@@ -36,7 +36,7 @@
 
 1. 📈 Leverage positive customer sentiment in marketing campaigns (score: 1.0)
 2. 🎯 Emphasize improvements in pricing
-3. 🎯 Emphasize improvements in build quality
+3. 🎯 Emphasize improvements in camera quality
 4. 📊 Continue monitoring market trends and customer feedback for iterative improvements
 
 ---
@@ -45,9 +45,9 @@
 
 ## Visualizations
 
-![Iphone 15 Pro Price Comparison 20260131 182441](reports/iPhone_15_Pro_price_comparison_20260131_182441.png)
+![Iphone 15 Pro Price Comparison 20260131 191615](reports/iPhone_15_Pro_price_comparison_20260131_191615.png)
 
-![Iphone 15 Pro Sentiment 20260131 182441](reports/iPhone_15_Pro_sentiment_20260131_182441.png)
+![Iphone 15 Pro Sentiment 20260131 191615](reports/iPhone_15_Pro_sentiment_20260131_191615.png)
 
-![Iphone 15 Pro Themes 20260131 182441](reports/iPhone_15_Pro_themes_20260131_182441.png)
+![Iphone 15 Pro Themes 20260131 191615](reports/iPhone_15_Pro_themes_20260131_191615.png)
 

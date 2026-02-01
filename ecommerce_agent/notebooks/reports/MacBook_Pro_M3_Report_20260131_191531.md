@@ -1,6 +1,6 @@
 # Market Analysis Report
 
-**Generated:** 2026-01-31 18:59:09
+**Generated:** 2026-01-31 19:15:31
 
 **Product:** MacBook Pro M3
 
@@ -37,7 +37,7 @@
 
 ## Visualizations
 
-![Product Sentiment 20260131 185909](reports/Product_sentiment_20260131_185909.png)
+![Product Sentiment 20260131 191531](reports/Product_sentiment_20260131_191531.png)
 
-![Product Themes 20260131 185909](reports/Product_themes_20260131_185909.png)
+![Product Themes 20260131 191531](reports/Product_themes_20260131_191531.png)
 
