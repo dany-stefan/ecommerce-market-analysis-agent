@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 E-commerce Market Analysis REST API
 
@@ -45,10 +46,10 @@ from src.utils.models import AnalysisRequest, AnalysisResult
 class APIAnalysisRequest(BaseModel):
     """API request model with validation"""
     product_query: str = Field(..., min_length=1, max_length=200, description="Product to analyze")
-    analysis_depth: str = Field(default="standard", regex="^(quick|standard|comprehensive)$")
+    analysis_depth: str = Field(default="standard", pattern="^(quick|standard|comprehensive)$")
     include_competitors: bool = Field(default=True)
     include_sentiment: bool = Field(default=True)
-    execution_strategy: str = Field(default="parallel", regex="^(sequential|parallel)$")
+    execution_strategy: str = Field(default="parallel", pattern="^(sequential|parallel)$")
     
     @validator('product_query')
     def validate_product_query(cls, v):

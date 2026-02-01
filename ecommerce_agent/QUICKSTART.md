@@ -4,7 +4,130 @@
 
 ---
 
-## 📋 Table of Contents
+## � **LLM Configuration (Optional - Real AI Analysis)**
+
+**By default, the system runs in MOCK MODE with simulated data - no API keys required.**
+
+### To Use Real OpenAI GPT Models:
+
+#### 1. **Get Your OpenAI API Key**
+- Visit [OpenAI Platform](https://platform.openai.com/api-keys)  
+- Create an API key (format: `sk-...`)
+
+#### 2. **Set Your API Key**
+Choose ONE of these methods:
+
+**Method A: Environment Variable (Recommended)**
+```bash
+export OPENAI_API_KEY="sk-your-actual-api-key-here"
+```
+
+**Method B: Create .env File**
+```bash
+# Create .env file in project root
+echo "OPENAI_API_KEY=sk-your-actual-api-key-here" > .env
+```
+
+#### 3. **Enable LLM Mode in main.py**
+Edit `main.py` and change these lines:
+
+**BEFORE (Mock Mode - Default):**
+```python
+# Line 41 - Sentiment Analysis (Mock Mode)
+agent.register_tool(SentimentAnalyzerTool(use_llm=False))
+# Line 42 - Market Trends (Mock Data - Keep as is)
+agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=True))
+# Line 43 - Report Generator (Mock Mode)
+agent.register_tool(ReportGeneratorTool(use_llm=False))
+
+# Line 124 - Individual tool demos
+sentiment_tool = SentimentAnalyzerTool(use_llm=False)
+# Line 152
+trend_tool = MarketTrendAnalyzerTool(use_mock_data=True)
+# Line 177
+report_tool = ReportGeneratorTool(use_llm=False)
+```
+
+**AFTER (LLM Mode - Real OpenAI Analysis):**
+```python
+# Line 41 - Sentiment Analysis (Real GPT-3.5)
+agent.register_tool(SentimentAnalyzerTool(use_llm=True))
+# Line 42 - Market Trends (Keep mock data - no API needed)
+agent.register_tool(MarketTrendAnalyzerTool(use_mock_data=True))
+# Line 43 - Report Generator (Real GPT-4)
+agent.register_tool(ReportGeneratorTool(use_llm=True))
+
+# Line 124 - Individual tool demos  
+sentiment_tool = SentimentAnalyzerTool(use_llm=True)
+# Line 152 - Keep as mock (no market data APIs configured)
+trend_tool = MarketTrendAnalyzerTool(use_mock_data=True)
+# Line 177
+report_tool = ReportGeneratorTool(use_llm=True)
+```
+
+**⚡ Quick Find & Replace:**
+1. Search: `SentimentAnalyzerTool(use_llm=False)`
+2. Replace: `SentimentAnalyzerTool(use_llm=True)`
+3. Search: `ReportGeneratorTool(use_llm=False)`  
+4. Replace: `ReportGeneratorTool(use_llm=True)`
+5. Save file
+
+**Note:** Keep `MarketTrendAnalyzerTool(use_mock_data=True)` unchanged - it uses realistic simulated data and doesn't need API keys.
+
+#### 4. **Run Analysis with Real AI**
+```bash
+python main.py
+```
+
+**✅ Success Indicators:**
+- No "mock mode" messages in output
+- Analysis takes longer (5-15 seconds vs <1 second)
+- More sophisticated sentiment analysis results  
+- Strategic recommendations use business language
+- Report generation shows "Using OpenAI GPT-4" in logs
+
+### 📝 **Summary: 3 Steps to Real AI**
+```bash
+# 1. Set API key
+export OPENAI_API_KEY="sk-your-key-here"
+
+# 2. Edit main.py: change use_llm=False → use_llm=True (4 occurrences)
+
+# 3. Run
+python main.py
+```
+
+### � **Helpful Tips**
+
+**Verify API Key is Set:**
+```bash
+echo $OPENAI_API_KEY
+# Should show: sk-your-key-here
+```
+
+**Check Configuration:**
+```bash
+grep "use_llm=" main.py
+# Should show: use_llm=True (if changed)
+```
+
+**Test Without Making Changes:**
+```bash
+# Temporarily set for one run
+OPENAI_API_KEY="sk-your-key" python main.py
+```
+
+### �🔄 **Switch Back to Mock Mode**
+Simply change all `use_llm=True` back to `use_llm=False` in `main.py` - no API calls, instant results!
+
+### 💰 **Cost Estimation**
+- **Typical analysis**: ~$0.02-0.05 per product
+- **GPT-4** (recommendations): ~$0.03 per analysis
+- **GPT-3.5-turbo** (sentiment): ~$0.001 per analysis
+
+---
+
+## �📋 Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -87,7 +210,7 @@ cd ecommerce_agent
 docker-compose up
 
 # Output: Generates example reports automatically
-# Check: reports/EXAMPLE_iPhone_15_Pro_Report.md
+# Check: reports/DEMO_iPhone_15_Pro_Report.md
 ```
 
 **Run tests in Docker:**
@@ -360,7 +483,7 @@ Demonstrates:
 │   ├── 02_tools_demo.ipynb         # ⭐ Question 2 demo
 │   └── 03_testing_demo.ipynb       # Test demonstrations
 ├── reports/                     # Generated analysis reports
-│   └── EXAMPLE_iPhone_15_Pro_Report.md
+│   └── DEMO_iPhone_15_Pro_Report.md
 ├── question_1/                  # Question 1 documentation
 ├── question_2/                  # Question 2 documentation
 ├── question_3/                  # ⭐ Question 3: API & Docker
@@ -601,7 +724,7 @@ ecommerce_agent/
 │   ├── QUESTION_1_PRESENTATION.ipynb  # ⭐ Architecture demo
 │   └── QUESTION_2_PRESENTATION.ipynb  # ⭐ Tools demo
 ├── reports/
-│   └── EXAMPLE_iPhone_15_Pro_Report.md # Sample output
+│   └── DEMO_iPhone_15_Pro_Report.md # Sample output
 ├── question_1/                  # Architecture docs
 ├── question_2/                  # Tools docs
 ├── requirements.txt             # Python dependencies
@@ -625,7 +748,7 @@ After running `python main.py`, check:
 - Strategic recommendations
 
 **Files Generated:**
-- `reports/EXAMPLE_iPhone_15_Pro_Report.md`
+- `reports/DEMO_iPhone_15_Pro_Report.md`
 
 ### Sample Analysis
 
@@ -645,7 +768,7 @@ AnalysisRequest(
 - Strategic recommendations (5 actionable insights)
 - 6 visualization types
 
-[See full example →](./reports/EXAMPLE_iPhone_15_Pro_Report.md)
+[See full example →](./reports/DEMO_iPhone_15_Pro_Report.md)
 
 ---
 
@@ -711,7 +834,7 @@ python -m ipykernel install --user --name=ecommerce_agent
    - `notebooks/QUESTION_2_PRESENTATION.ipynb` - Individual tool demos
 
 3. **Review Example Output**
-   - `reports/EXAMPLE_iPhone_15_Pro_Report.md` - Sample analysis report
+   - `reports/DEMO_iPhone_15_Pro_Report.md` - Sample analysis report
 
 4. **Run Tests**
    ```bash

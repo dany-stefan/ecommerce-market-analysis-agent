@@ -748,6 +748,86 @@ curl -X POST http://localhost:8000/api/v1/analyze \
   }'
 ```
 
+---
+
+### Complete API Examples & Responses
+
+#### 1. Health Check
+```bash
+curl -X GET "http://localhost:8000/health"
+```
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-31T19:42:00.000Z",
+  "uptime_seconds": 120.5,
+  "agent_status": {
+    "tools_loaded": 3,
+    "execution_strategy": "parallel"
+  }
+}
+```
+
+#### 2. Synchronous Analysis Response
+```json
+{
+  "analysis_id": "analysis_20260131_194200",
+  "product_query": "iPhone 15 Pro",
+  "execution_time": 2.35,
+  "status": "completed",
+  "results": {
+    "sentiment_analysis": {
+      "overall_sentiment": "positive",
+      "sentiment_score": 0.78,
+      "key_themes": ["battery life", "build quality", "camera quality"]
+    },
+    "market_trends": {
+      "price_trend": "stable",
+      "price_change_90d": "+0.6%",
+      "market_momentum": "neutral"
+    },
+    "recommendations": [
+      {
+        "type": "marketing",
+        "description": "Leverage positive sentiment in campaigns",
+        "impact_score": 0.78
+      }
+    ],
+    "report_file": "reports/iPhone_15_Pro_Report_20260131_194200.md"
+  }
+}
+```
+
+#### 3. Asynchronous Analysis
+```bash
+curl -X POST "http://localhost:8000/api/v1/analyze/async" \
+  -d '{"product_query": "MacBook Pro M3"}'
+```
+**Response:**
+```json
+{
+  "job_id": "job_a1b2c3d4e5f6",
+  "status": "pending",
+  "status_url": "/api/v1/job/job_a1b2c3d4e5f6"
+}
+```
+
+#### 4. Performance Metrics
+```bash
+curl -X GET "http://localhost:8000/metrics"
+```
+**Response:**
+```json
+{
+  "total_requests": 15,
+  "success_rate": 93.33,
+  "average_response_time": 2.45,
+  "active_jobs": 0,
+  "completed_jobs": 8
+}
+```
+
 **Response:**
 ```json
 {

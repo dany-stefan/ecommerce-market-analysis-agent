@@ -113,21 +113,21 @@ services:
   # ============================================================================
   # Optional: Nginx Reverse Proxy (Production)
   # ============================================================================
-  nginx:
-    image: nginx:alpine
-    container_name: market_analysis_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - api
-    profiles:
-      - production
-    networks:
-      - agent_network
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: market_analysis_nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - api
+  #   profiles:
+  #     - production
+  #   networks:
+  #     - agent_network
 
 # ============================================================================
 # Networks

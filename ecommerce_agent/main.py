@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Main entry point for the Market Analysis Agent.
 Executable code for Question 1 (Agent Orchestration) and Question 2 (Tools Implementation).

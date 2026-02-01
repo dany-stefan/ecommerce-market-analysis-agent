@@ -435,7 +435,7 @@ A: "Yes! The data structures are library-agnostic. They work with matplotlib, pl
 2. `src/tools/report_generator.py` - Show context management
 3. `src/tools/base_tool.py` - Show architecture
 4. `notebooks/02_tools_demo.ipynb` - Live demo backup
-5. `reports/EXAMPLE_iPhone_15_Pro_Report.md` - Show output
+5. `reports/DEMO_iPhone_15_Pro_Report.md` - Show output
 
 ---
 
