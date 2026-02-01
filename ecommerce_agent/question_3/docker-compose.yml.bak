@@ -1,0 +1,48 @@
+# Docker Compose Configuration for E-commerce Market Analysis Agent
+# Question 1: Containerized deployment with multiple service modes
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # API Server Mode (Primary - Question 1 REST API)
+  # ============================================================================
+  api:
+    build:
+      context: ..
+      dockerfile: question_3/Dockerfile
+    container_name: market_analysis_api
+    ports:
+      - "8000:8000"
+    # volumes disabled for demo
+    # - ../reports:/app/reports
+    # - ../logs:/app/logs    environment:
+      - VERBOSE_LOGGING=true
+      - MAX_ITERATIONS=5
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    command: python api.py
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - agent_network
+    
+    # CrewAI Alternative (commented):
+    # If using CrewAI framework, same Docker setup but different command:
+    # command: python crewai_api.py
+    # CrewAI benefits: Built-in API endpoints, automatic agent coordination
+
+  # ============================================================================
+  # Report Generator Mode (Batch Processing)
+  # ============================================================================
+  batch:
+    build: .
+    container_name: market_analysis_batch
+    # volumes disabled for demo
+    # - ../reports:/app/reports
+    # - ../logs:/app/logs
