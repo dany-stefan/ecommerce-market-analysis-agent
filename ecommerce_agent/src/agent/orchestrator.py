@@ -19,7 +19,7 @@ CREWAI FRAMEWORK ALTERNATIVE (Commented for comparison):
 
 Framework Selection Rationale:
 CrewAI was chosen for comparison because:
-1. Rapid Prototyping: Best for quick implementation (5-hour assignment)
+1. Rapid Prototyping: Best for quick implementation in focused projects
 2. Role-Based Design: Natural fit for our specialized tool architecture
 3. Built-in Orchestration: Simplifies multi-agent coordination
 4. Market Analysis Fit: Designed for research/content pipelines like ours

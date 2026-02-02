@@ -4,8 +4,6 @@
 
 **What I Built:** Foundational architecture for a market analysis agent
 
-**Time Spent:** ~1 hour (appropriate for 5-hour assignment)
-
 **Key Decision:** Custom implementation with optional LLM integration for production-grade capabilities
 
 ---
@@ -13,7 +11,7 @@
 ## 🏗️ Architecture Overview
 
 ### What I'll Say:
-"I built a custom agent architecture instead of using frameworks like LangChain. This gives me full control and makes the orchestration logic transparent - perfect for a 5-hour assignment where clarity matters."
+"I built a custom agent architecture instead of using frameworks like LangChain. This gives me full control and makes the orchestration logic transparent - perfect for demonstrating deep architectural understanding."
 
 ### The Core Components
 
@@ -713,7 +711,7 @@ print(result)
 ## ❓ Anticipated Questions & Answers
 
 **Q: Why not use LangChain?**
-A: "For this 5-hour assignment, transparency is more valuable than framework features. Custom code is easier to explain and shows deeper understanding. In production with more time, I'd evaluate LangChain's ecosystem."
+A: "For this project, transparency is more valuable than framework features. Custom code is easier to explain and shows deeper understanding. In production with different constraints, I'd evaluate LangChain's ecosystem."
 enhanced orchestration (look for $ markers!)
 4. `question_1/ORCHESTRATOR_REFINEMENTS.md` - Feature documentation
 5. `question_1/ORCHESTRATOR_QUICK_START.md` - Usage examples
@@ -844,7 +842,7 @@ After demo:
 ---
 
 **Total Presentation Time: 7-10 minutes**
-**Complexity Level: Appropriate for 5-hour assignment**  
+**Complexity Level: Appropriate for project scope**  
 **Professional Level: Production-ready architecture**
 
 Good luck with your presentation! 🚀

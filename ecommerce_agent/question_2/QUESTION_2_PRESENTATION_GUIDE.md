@@ -440,7 +440,7 @@ A: "Yes! The data structures are library-agnostic. They work with matplotlib, pl
 ---
 
 **Total Presentation Time: 8-12 minutes**
-**Complexity Level: Appropriate for 5-hour assignment**
+**Complexity Level: Appropriate for project scope**
 **Professional Level: Production-ready structure**
 
 Good luck with your presentation! 🚀
