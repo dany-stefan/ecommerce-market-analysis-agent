@@ -1,4 +1,4 @@
-# E-Commerce Market Analysis Agent
+# E-Commerce Market Analysis Agent !
 
 > **An intelligent AI agent system that orchestrates specialized tools to automate market analysis for e-commerce products. Built with production-grade architecture, LLM integration, and advanced design patterns.**
 
